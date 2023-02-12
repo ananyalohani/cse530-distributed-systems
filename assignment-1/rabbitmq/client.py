@@ -67,7 +67,6 @@ if __name__ == "__main__":
                 'type': article_type,
                 'author': author,
                 'content': content
-
             })
         elif method == 'GetArticles':
             article_type = sys.argv[4] if len(sys.argv) > 4 else None
@@ -89,10 +88,10 @@ if __name__ == "__main__":
         print(response.decode())
 
 # CLIENT REQUEST FORMATS:
-# python3 client.py GetServerList
-# python3 client.py JoinServer SERVER1
-# python3 client.py LeaveServer SERVER1
-# python3 client.py PublishArticle SERVER1 SPORTS "Ananya Lohani" "Lorem Ipsum"
-# python3 client.py GetArticles SERVER1 SPORTS "Ananya Lohani" "10/01/2022"
-# python3 client.py GetArticles SERVER1 SPORTS _ "10/01/2021"
-# python3 client.py GetArticles SERVER1 _ "Ananya Lohani" "10/01/2021"
+# python3 client.py ananya GetServerList
+# python3 client.py ananya JoinServer SERVER1
+# python3 client.py ananya LeaveServer SERVER1
+# python3 client.py ananya PublishArticle SERVER1 SPORTS "Ananya Lohani" "Lorem Ipsum"
+# python3 client.py ananya GetArticles SERVER1 SPORTS "Ananya Lohani" "10/01/2022"
+# python3 client.py ananya GetArticles SERVER1 SPORTS _ "10/01/2021"
+# python3 client.py ananya GetArticles SERVER1 _ "Ananya Lohani" "10/01/2021"
