@@ -52,6 +52,7 @@ class Registry(object):
         print(" [x] Awaiting RPC requests")
         self.channel.start_consuming()
 
+
 if __name__ == "__main__":
     registry = Registry("r1")
     registry.start()

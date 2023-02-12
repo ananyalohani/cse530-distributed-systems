@@ -35,13 +35,15 @@ class Client(object):
         self.response = None
         self.correlation_id = str(uuid.uuid4())
         self.channel.basic_publish(exchange='', routing_key=routing_key,
-                                   properties=pika.BasicProperties(reply_to=self.callback_queue, correlation_id=self.correlation_id),
+                                   properties=pika.BasicProperties(
+                                       reply_to=self.callback_queue, correlation_id=self.correlation_id),
                                    body=json.dumps({'method': method, 'params': params, 'client_id': self.client_id}))
         self.connection.process_data_events(time_limit=5000)
         return self.response
 
     def get_server_list(self, registry_name):
         return self.call(f'{registry_name}_registry_rpc', 'GetServerList')
+
 
 if __name__ == "__main__":
     registry_name = 'r1'
@@ -82,7 +84,6 @@ if __name__ == "__main__":
                 'author': author if author != '_' else None,
                 'date': date
             })
-
 
         response = client.call(f'{server_id}_server_rpc', method, params)
         print(response.decode())
