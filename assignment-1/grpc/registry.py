@@ -11,8 +11,8 @@ class RegistryServicer(discord_pb2_grpc.RegistryServicer):
     server_list = []
 
     def Register(self, request, context):
-        print(f"[.] Register request received from server @ {unquote(context.peer())}")
         server = request.server
+        print(f"[.] JOIN REQUEST FROM {server.address}")
         if any(s.name == server.name for s in self.server_list):
             return discord_pb2.BaseResponse(
                 status=discord_pb2.Status.ERROR,
@@ -25,6 +25,7 @@ class RegistryServicer(discord_pb2_grpc.RegistryServicer):
         )
 
     def GetServerList(self, request, context):
+        print(f"SERVER LIST REQUEST FROM {unquote(context.peer())}")
         return discord_pb2.GetServerListResponse(servers=self.server_list)
 
 
