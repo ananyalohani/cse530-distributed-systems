@@ -51,11 +51,11 @@ class Server(object):
 
         print(f" [.] {payload['method']} request from {payload['client_id']}")
         if payload['method'] == 'JoinServer':
-            if len(self.clientele) < self.MAX_CLIENTS:
-                self.clientele.append(payload['client_id'])
+            if payload['client_id'] in self.clientele:
                 ch.basic_publish(exchange='', routing_key=props.reply_to,
                                  properties=pika.BasicProperties(correlation_id=props.correlation_id), body="SUCCESS")
-            if payload['client_id'] in self.clientele:
+            if len(self.clientele) < self.MAX_CLIENTS:
+                self.clientele.append(payload['client_id'])
                 ch.basic_publish(exchange='', routing_key=props.reply_to,
                                  properties=pika.BasicProperties(correlation_id=props.correlation_id), body="SUCCESS")
             else:
@@ -86,6 +86,11 @@ class Server(object):
             ch.basic_ack(delivery_tag=method.delivery_tag)
 
         elif payload['method'] == 'GetArticles':
+            if payload['client_id'] not in self.clientele:
+                ch.basic_publish(exchange='', routing_key=props.reply_to,
+                                 properties=pika.BasicProperties(correlation_id=props.correlation_id), body="FAILURE")
+                ch.basic_ack(delivery_tag=method.delivery_tag)
+                return
             request = json.loads(payload['params'])
             date = request['date']
             timestamp = time.mktime(datetime.datetime.strptime(date,
@@ -110,6 +115,6 @@ if __name__ == '__main__':
     server = Server(server_id)
     print(" [x] Requesting server registration")
     response = server.register("r1")
-    print(" [.] Got %r" % response)
+    print(" [.] Got %r" % response.decode())
     if response.decode() == "SUCCESS":
         server.start()

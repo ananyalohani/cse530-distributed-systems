@@ -2,6 +2,9 @@ import pika
 import json
 import uuid
 import sys
+import inquirer
+from inquirer.themes import BlueComposure
+from colorama import Fore
 
 
 class Client(object):
@@ -48,44 +51,74 @@ class Client(object):
 if __name__ == "__main__":
     registry_name = 'r1'
     client_name = sys.argv[1]
-    method = sys.argv[2] if len(sys.argv) > 2 else None
-    server_id = sys.argv[3] if len(sys.argv) > 3 else None
     client = Client(client_name)
-    params = None
-    if method == 'GetServerList':
-        response = client.get_server_list(registry_name)
-        print(response.decode())
-    else:
-        if method == 'PublishArticle':
-            article_type = sys.argv[4] if len(sys.argv) > 4 else None
-            author = sys.argv[5] if len(sys.argv) > 5 else None
-            content = sys.argv[6] if len(sys.argv) > 6 else None
-            if not article_type or not author or not content:
-                print('Invalid params!')
-                exit()
-            params = json.dumps({
-                'type': article_type,
-                'author': author,
-                'content': content
-            })
-        elif method == 'GetArticles':
-            article_type = sys.argv[4] if len(sys.argv) > 4 else None
-            author = sys.argv[5] if len(sys.argv) > 5 else None
-            date = sys.argv[6] if len(sys.argv) > 6 else None
-            if not article_type or not author or not date:
-                print('Invalid params!')
-                exit()
-            elif date == '_' or (article_type == '_' and author == '_'):
-                print('Invalid params!')
-                exit()
-            params = json.dumps({
-                'type': article_type if article_type != '_' else None,
-                'author': author if author != '_' else None,
-                'date': date
-            })
+    while True:
+        q_method = inquirer.List(name='method', message='Choose an operation', choices=[
+                                 "GetServerList", "JoinServer", "LeaveServer", "PublishArticle", "GetArticles", "Exit"])
+        method = inquirer.prompt([q_method], theme=BlueComposure())['method']
 
-        response = client.call(f'{server_id}_server_rpc', method, params)
-        print(response.decode())
+        if method == "Exit":
+            exit()
+
+        # method = sys.argv[2] if len(sys.argv) > 2 else None
+        # server_id = sys.argv[3] if len(sys.argv) > 3 else None
+        # client = Client(client_name)
+        params = None
+        if method == 'GetServerList':
+            response = client.get_server_list(registry_name)
+            print(Fore.GREEN, response.decode(), end='\n\n')
+        else:
+            q_server_id = inquirer.Text(
+                name='server_id', message='Enter server id', validate=lambda _, x: x != '')
+            server_id = inquirer.prompt(
+                [q_server_id], theme=BlueComposure())['server_id']
+
+            if method == 'PublishArticle':
+                q_article = [
+                    inquirer.List(name='type', message='Enter article type', choices=[
+                                  'SPORTS', 'FASHION', 'POLITICS']),
+                    inquirer.Text(
+                        name='author', message='Enter author name', validate=lambda _, x: x != ''),
+                    inquirer.Text(name='content',
+                                  message='Enter article content', validate=lambda _, x: x != ''),
+                ]
+                answers = inquirer.prompt(q_article, theme=BlueComposure())
+                article_type = answers['type']
+                author = answers['author']
+                content = answers['content']
+                params = json.dumps({
+                    'type': article_type,
+                    'author': author,
+                    'content': content
+                })
+            elif method == 'GetArticles':
+                q_article = [
+                    inquirer.List(name='type', message='Enter article type', choices=[
+                                  'SPORTS', 'FASHION', 'POLITICS']),
+                    inquirer.Text(
+                        name='author', message='Enter author name', validate=lambda _, x: x != ''),
+                    inquirer.Text(
+                        name='date', message='Enter date (DD/MM/YYYY)', validate=lambda _, x: x != ''),
+                ]
+                answers = inquirer.prompt(q_article, theme=BlueComposure())
+                article_type = answers['type']
+                author = answers['author']
+                date = answers['date']
+                if not article_type or not author or not date:
+                    print('Invalid params!')
+                elif date == '_' or (article_type == '_' and author == '_'):
+                    print('Invalid params!')
+                params = json.dumps({
+                    'type': article_type if article_type != '_' else None,
+                    'author': author if author != '_' else None,
+                    'date': date
+                })
+
+            response = client.call(f'{server_id}_server_rpc', method, params)
+            if 'FAILURE' in response.decode():
+                print(Fore.RED, response.decode(), end='\n\n')
+            else:
+                print(Fore.GREEN, response.decode(), end='\n\n')
 
 # CLIENT REQUEST FORMATS:
 # python3 client.py ananya GetServerList
