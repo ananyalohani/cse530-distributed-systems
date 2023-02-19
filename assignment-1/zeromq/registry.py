@@ -34,7 +34,9 @@ while True:
         print(
             f"[.] Registering server {payload['server_id']} on port {payload['params']['port']}"
         )
-        servers.append({payload["server_id"]: payload["params"]["port"]})
+        servers.append(
+            {"server_id": payload["server_id"], "port": payload["params"]["port"]}
+        )
         socket.send(b"SUCCESS")
 
     elif payload["method"] == "GetServerList":

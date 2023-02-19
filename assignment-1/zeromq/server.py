@@ -1,5 +1,5 @@
 import time
-import datetime
+from datetime import datetime
 import zmq
 import inquirer
 import uuid
@@ -19,7 +19,7 @@ server_id = answers["server_id"] if answers["server_id"] != "" else str(uuid.uui
 port = answers["port"]
 
 # Send register request to registry
-socket.connect("tcp://localhost:5555")
+socket.connect(f"tcp://localhost:{5555}")
 payload = {
     "method": "Register",
     "params": {"port": port},
@@ -55,7 +55,7 @@ while True:
 
     method = payload["method"]
     client_id = payload["client_id"]
-    params = payload["params"]
+    params = payload["params"] if "params" in payload else {}
 
     print(f"[.] {method} request from {client_id}")
 
@@ -102,21 +102,13 @@ while True:
             socket.send(b"INVALID REQUEST")
             continue
         date = params["date"]
-        timestamp = time.mktime(
-            datetime.datetime.strptime(date, "%d/%m/%Y").timetuple()
-        )
-        result = filter(lambda x: x["timestamp"] > timestamp, articles)
-        result = (
-            filter(lambda x: x["type"] == params["type"], result)
-            if "type" in params
-            else result
-        )
-        result = (
-            filter(lambda x: x["author"] == params["author"], result)
-            if "author" in params
-            else result
-        )
-        socket.send(json.dumps(list(result), default=tuple).encode("utf-8"))
+        timestamp = time.mktime(datetime.strptime(date, "%d/%m/%Y").timetuple())
+        result = [x for x in articles if x["timestamp"] >= timestamp]
+        if "type" in params and params["type"] != "All":
+            result = [x for x in result if x["type"] == params["type"]]
+        if "author" in params and params["author"] != "":
+            result = [x for x in result if x["author"] == params["author"]]
+        socket.send(json.dumps(list(result)).encode("utf-8"))
 
     else:
         socket.send(b"INVALID REQUEST")
