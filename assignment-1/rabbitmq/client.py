@@ -10,7 +10,7 @@ from colorama import Fore
 class Client(object):
 
     def __init__(self, name):
-        self.client_id = name or uuid.uuid4()
+        self.client_id = name or str(uuid.uuid4())
         print(Fore.BLUE, f'Client id: {self.client_id}')
 
         self.connection = pika.BlockingConnection(
@@ -42,7 +42,7 @@ class Client(object):
                                    properties=pika.BasicProperties(
                                        reply_to=self.callback_queue, correlation_id=self.correlation_id),
                                    body=json.dumps({'method': method, 'params': params, 'client_id': self.client_id}))
-        self.connection.process_data_events(time_limit=5000)
+        self.connection.process_data_events(time_limit=5)
         return self.response
 
     def get_server_list(self, registry_name):
@@ -114,8 +114,9 @@ if __name__ == "__main__":
                 })
 
             response = client.call(f'{server_id}_server_rpc', method, params)
-            # print(response)
-            if 'FAILURE' in response.decode():
+            if not response:
+                print(Fore.RED, 'No response from server!', end='\n\n')
+            elif 'FAILURE' in response.decode():
                 print(Fore.RED, response.decode(), end='\n\n')
             else:
                 print(Fore.GREEN, response.decode(), end='\n\n')
