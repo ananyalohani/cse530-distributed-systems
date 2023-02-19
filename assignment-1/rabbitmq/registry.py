@@ -11,7 +11,7 @@ class Registry(object):
         self.channel = self.connection.channel()
         self.rpc_queue = self.channel.queue_declare(
             queue=f'{name}_registry_rpc')
-        self.servers = []
+        self.servers = set()
 
     def on_register(self, ch, method, props, server_id):
         if len(self.servers) > self.MAX_SERVERS:
@@ -29,7 +29,7 @@ class Registry(object):
             return
 
         print(f" [.] Registering server {server_id}")
-        self.servers.append(server_id)
+        self.servers.add(server_id)
         ch.basic_publish(exchange='', routing_key=props.reply_to, properties=pika.BasicProperties(
             correlation_id=props.correlation_id), body='SUCCESS')
 
@@ -42,7 +42,7 @@ class Registry(object):
         elif payload['method'] == "GetServerList":
             print(f" [.] Returning server list to {payload['client_id']}")
             ch.basic_publish(exchange='', routing_key=props.reply_to, properties=pika.BasicProperties(
-                correlation_id=props.correlation_id), body=json.dumps(self.servers))
+                correlation_id=props.correlation_id), body=json.dumps(self.servers, default=tuple))
             ch.basic_ack(delivery_tag=method.delivery_tag)
 
     def start(self):

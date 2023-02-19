@@ -60,9 +60,6 @@ if __name__ == "__main__":
         if method == "Exit":
             exit()
 
-        # method = sys.argv[2] if len(sys.argv) > 2 else None
-        # server_id = sys.argv[3] if len(sys.argv) > 3 else None
-        # client = Client(client_name)
         params = None
         if method == 'GetServerList':
             response = client.get_server_list(registry_name)
@@ -84,8 +81,9 @@ if __name__ == "__main__":
                 ]
                 answers = inquirer.prompt(q_article, theme=BlueComposure())
                 article_type = answers['type']
-                author = answers['author']
-                content = answers['content']
+                author = answers['author'].strip()
+                content = answers['content'].strip()
+                content = content[:min(len(content), 200)]
                 params = json.dumps({
                     'type': article_type,
                     'author': author,
@@ -115,16 +113,8 @@ if __name__ == "__main__":
                 })
 
             response = client.call(f'{server_id}_server_rpc', method, params)
+            # print(response)
             if 'FAILURE' in response.decode():
                 print(Fore.RED, response.decode(), end='\n\n')
             else:
                 print(Fore.GREEN, response.decode(), end='\n\n')
-
-# CLIENT REQUEST FORMATS:
-# python3 client.py ananya GetServerList
-# python3 client.py ananya JoinServer SERVER1
-# python3 client.py ananya LeaveServer SERVER1
-# python3 client.py ananya PublishArticle SERVER1 SPORTS "Ananya Lohani" "Lorem Ipsum"
-# python3 client.py ananya GetArticles SERVER1 SPORTS "Ananya Lohani" "10/01/2022"
-# python3 client.py ananya GetArticles SERVER1 SPORTS _ "10/01/2021"
-# python3 client.py ananya GetArticles SERVER1 _ "Ananya Lohani" "10/01/2021"
