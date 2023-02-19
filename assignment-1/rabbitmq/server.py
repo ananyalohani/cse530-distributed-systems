@@ -6,6 +6,7 @@ import datetime
 import sys
 import inquirer
 from inquirer.themes import BlueComposure
+from colorama import Fore
 
 
 class Server(object):
@@ -24,6 +25,7 @@ class Server(object):
             queue=self.callback_queue, on_message_callback=self.on_response)
 
         self.server_id = server_id or uuid.uuid4()
+        print(Fore.BLUE, f'Server id: {self.server_id}', Fore.RESET)
         self.response = None
         self.parent_server_id = None
         self.correlation_id = None
@@ -69,7 +71,7 @@ class Server(object):
 
     def start(self):
         q1 = inquirer.List(
-            name='has_parent', message='Do you want to join a server?', choices=['yes', 'no'])
+            name='has_parent', message='Join a server?', choices=['yes', 'no'])
         a1 = inquirer.prompt([q1], theme=BlueComposure())['has_parent']
         if a1 == 'yes':
             q2 = inquirer.Text(
@@ -79,7 +81,7 @@ class Server(object):
         self.channel.queue_declare(queue=f'{self.server_id}_server_rpc')
         self.channel.basic_consume(
             queue=f'{self.server_id}_server_rpc', on_message_callback=self.on_request)
-        print(" [x] Awaiting client requests")
+        print("[x] Awaiting client requests")
         self.channel.start_consuming()
 
     def on_request(self, ch, method, props, body):
@@ -94,7 +96,7 @@ class Server(object):
                              properties=pika.BasicProperties(correlation_id=props.correlation_id), body="INVALID REQUEST")
             ch.basic_ack(delivery_tag=method.delivery_tag)
 
-        print(f" [.] {payload['method']} request from {client}")
+        print(f"[.] {payload['method']} request from {client}")
         if payload['method'] == 'JoinServer':
             if payload['client_id'] in self.clientele:
                 ch.basic_publish(exchange='', routing_key=props.reply_to,
@@ -164,10 +166,10 @@ class Server(object):
 
 
 if __name__ == '__main__':
-    server_id = sys.argv[1] if len(sys.argv) > 1 else "SERVER1"
+    server_id = sys.argv[1] if len(sys.argv) > 1 else None
     server = Server(server_id)
-    print(" [x] Requesting server registration")
+    print("[x] Requesting server registration")
     response = server.register("r1")
-    print(" [.] Got", response)
+    print("[.] Got", response)
     if response == "SUCCESS":
         server.start()

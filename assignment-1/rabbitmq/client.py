@@ -11,6 +11,7 @@ class Client(object):
 
     def __init__(self, name):
         self.client_id = name or uuid.uuid4()
+        print(Fore.BLUE, f'Client id: {self.client_id}')
 
         self.connection = pika.BlockingConnection(
             pika.ConnectionParameters('localhost'))
@@ -50,7 +51,7 @@ class Client(object):
 
 if __name__ == "__main__":
     registry_name = 'r1'
-    client_name = sys.argv[1]
+    client_name = sys.argv[1] if len(sys.argv) > 1 else None
     client = Client(client_name)
     while True:
         q_method = inquirer.List(name='method', message='Choose an operation', choices=[

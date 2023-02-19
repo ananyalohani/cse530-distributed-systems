@@ -15,20 +15,20 @@ class Registry(object):
 
     def on_register(self, ch, method, props, server_id):
         if len(self.servers) > self.MAX_SERVERS:
-            print(f" [.] MAX_SERVERS exceeded, rejecting server {server_id}")
+            print(f"[.] MAX_SERVERS exceeded, rejecting server {server_id}")
             ch.basic_publish(exchange='', routing_key=props.reply_to, properties=pika.BasicProperties(
                 correlation_id=props.correlation_id), body='FAILURE')
             ch.basic_ack(delivery_tag=method.delivery_tag)
             return
 
         if server_id in self.servers:
-            print(f" [.] Server {server_id} already registered")
+            print(f"[.] Server {server_id} already registered")
             ch.basic_publish(exchange='', routing_key=props.reply_to, properties=pika.BasicProperties(
                 correlation_id=props.correlation_id), body='SUCCESS')
             ch.basic_ack(delivery_tag=method.delivery_tag)
             return
 
-        print(f" [.] Registering server {server_id}")
+        print(f"[.] Registering server {server_id}")
         self.servers.add(server_id)
         ch.basic_publish(exchange='', routing_key=props.reply_to, properties=pika.BasicProperties(
             correlation_id=props.correlation_id), body='SUCCESS')
@@ -40,7 +40,7 @@ class Registry(object):
         if payload['method'] == "Register":
             self.on_register(ch, method, props, payload['params']['server_id'])
         elif payload['method'] == "GetServerList":
-            print(f" [.] Returning server list to {payload['client_id']}")
+            print(f"[.] Returning server list to {payload['client_id']}")
             ch.basic_publish(exchange='', routing_key=props.reply_to, properties=pika.BasicProperties(
                 correlation_id=props.correlation_id), body=json.dumps(self.servers, default=tuple))
             ch.basic_ack(delivery_tag=method.delivery_tag)
@@ -49,7 +49,7 @@ class Registry(object):
         self.channel.basic_qos(prefetch_count=1)
         self.channel.basic_consume(queue=self.rpc_queue.method.queue,
                                    on_message_callback=self.on_request)
-        print(" [x] Awaiting RPC requests")
+        print("[x] Awaiting RPC requests")
         self.channel.start_consuming()
 
 
