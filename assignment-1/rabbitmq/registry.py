@@ -14,8 +14,8 @@ class Registry(object):
         self.servers = set()
 
     def on_register(self, ch, method, props, server_id):
-        if len(self.servers) > self.MAX_SERVERS:
-            print(f"[.] MAX_SERVERS exceeded, rejecting server {server_id}")
+        if len(self.servers) == self.MAX_SERVERS:
+            print(f"[.] MAX_SERVERS reached, rejecting server {server_id}")
             ch.basic_publish(exchange='', routing_key=props.reply_to, properties=pika.BasicProperties(
                 correlation_id=props.correlation_id), body='FAILURE')
             ch.basic_ack(delivery_tag=method.delivery_tag)
