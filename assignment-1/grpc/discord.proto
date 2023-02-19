@@ -1,0 +1,82 @@
+syntax = "proto3";
+
+package discord;
+
+enum Status {
+    UNKNOWN = 0;
+    OK = 1;
+    ERROR = 2;
+}
+
+message BaseResponse {
+    Status status = 1;
+    string message = 2;
+}
+
+// Server<>Registry
+message ServerInfo {
+    string name = 1;
+    string address = 2;
+}
+
+message RegisterRequest {
+    ServerInfo server = 1;
+}
+
+// Client<>Registry
+message GetServerListRequest {}
+
+message GetServerListResponse {
+    repeated ServerInfo servers = 1;
+}
+
+// Client<>Server
+message JoinServerRequest {
+    string clientId = 1;
+}
+
+message LeaveServerRequest {
+    string clientId = 1;
+}
+
+enum ArticleType {
+    SPORTS = 0;
+    FASHION = 1;
+    POLITICS = 2;
+}
+
+message Article {
+    string title = 1;
+    string content = 2;
+    ArticleType type = 3;
+    string author = 4;
+    int64 time = 5;
+}
+
+message GetArticlesRequest {
+    string clientId = 1;
+    optional ArticleType type = 2;
+    optional string author = 3;
+    optional int64 time = 4;
+}
+
+message GetArticlesResponse {
+    repeated Article articles = 1;
+}
+
+message PublishArticleRequest {
+    string clientId = 1;
+    Article article = 2;
+}
+
+service Registry {
+    rpc Register(RegisterRequest) returns (BaseResponse);
+    rpc GetServerList(GetServerListRequest) returns (GetServerListResponse);
+}
+
+service Server {
+    rpc Join(JoinServerRequest) returns (BaseResponse);
+    rpc Leave(LeaveServerRequest) returns (BaseResponse);
+    rpc GetArticles(GetArticlesRequest) returns (GetArticlesResponse);
+    rpc PublishArticle(PublishArticleRequest) returns (BaseResponse);
+}
