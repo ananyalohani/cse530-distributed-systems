@@ -9,10 +9,16 @@ import grpc
 
 class RegistryServicer(discord_pb2_grpc.RegistryServicer):
     server_list = []
+    MAX_SERVERS = 10
 
     def Register(self, request, context):
         server = request.server
         print(f"[.] JOIN REQUEST FROM {server.address}")
+        if len(self.server_list) >= self.MAX_SERVERS:
+            return discord_pb2.BaseResponse(
+                status=discord_pb2.Status.ERROR,
+                message=f"Max number of servers ({self.MAX_SERVERS}) reached.",
+            )
         if any(s.name == server.name for s in self.server_list):
             return discord_pb2.BaseResponse(
                 status=discord_pb2.Status.ERROR,

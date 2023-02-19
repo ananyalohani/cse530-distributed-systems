@@ -10,6 +10,7 @@ import inquirer
 class ServerServicer(discord_pb2_grpc.ServerServicer):
     clients = []
     articles = []
+    MAX_CLIENTS = 10
 
     def __init__(self, server_name, server_address, registry_address):
         self.server_name = server_name
@@ -39,6 +40,10 @@ class ServerServicer(discord_pb2_grpc.ServerServicer):
 
     def Join(self, request, context):
         print(f"[.] Join request received from client {request.clientId}")
+        if len(self.clients) >= self.MAX_CLIENTS:
+            return discord_pb2.BaseResponse(
+                status=discord_pb2.Status.ERROR, message="Server is full."
+            )
         if request.clientId in self.clients:
             return discord_pb2.BaseResponse(
                 status=discord_pb2.Status.ERROR, message="Client already joined."
