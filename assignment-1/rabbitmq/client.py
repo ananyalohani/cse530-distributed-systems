@@ -8,21 +8,23 @@ from colorama import Fore
 
 
 class Client(object):
-
     def __init__(self, name):
         self.client_id = name or str(uuid.uuid4())
-        print(Fore.BLUE, f'Client id: {self.client_id}')
+        print(Fore.BLUE, f"Client id: {self.client_id}")
 
         self.connection = pika.BlockingConnection(
-            pika.ConnectionParameters('localhost'))
+            pika.ConnectionParameters("localhost")
+        )
         self.channel = self.connection.channel()
 
-        response = self.channel.queue_declare(
-            queue='', exclusive=True)
+        response = self.channel.queue_declare(queue="", exclusive=True)
         self.callback_queue = response.method.queue
 
         self.channel.basic_consume(
-            queue=self.callback_queue, on_message_callback=self.on_response, auto_ack=True)
+            queue=self.callback_queue,
+            on_message_callback=self.on_response,
+            auto_ack=True,
+        )
 
         self.response = None
         self.correlation_id = None
@@ -32,91 +34,135 @@ class Client(object):
             self.response = body
 
     def call(self, routing_key, method, params=None):
-        if method not in ['GetServerList', 'JoinServer', 'LeaveServer', 'PublishArticle', 'GetArticles']:
-            print('Invalid method!')
+        if method not in [
+            "GetServerList",
+            "JoinServer",
+            "LeaveServer",
+            "PublishArticle",
+            "GetArticles",
+        ]:
+            print("Invalid method!")
             return
 
         self.response = None
         self.correlation_id = str(uuid.uuid4())
-        self.channel.basic_publish(exchange='', routing_key=routing_key,
-                                   properties=pika.BasicProperties(
-                                       reply_to=self.callback_queue, correlation_id=self.correlation_id),
-                                   body=json.dumps({'method': method, 'params': params, 'client_id': self.client_id}))
+        self.channel.basic_publish(
+            exchange="",
+            routing_key=routing_key,
+            properties=pika.BasicProperties(
+                reply_to=self.callback_queue, correlation_id=self.correlation_id
+            ),
+            body=json.dumps(
+                {"method": method, "params": params, "client_id": self.client_id}
+            ),
+        )
         self.connection.process_data_events(time_limit=5)
         return self.response
 
     def get_server_list(self, registry_name):
-        return self.call(f'{registry_name}_registry_rpc', 'GetServerList')
+        return self.call(f"{registry_name}_registry_rpc", "GetServerList")
 
 
 if __name__ == "__main__":
-    registry_name = 'r1'
+    registry_name = "r1"
     client_name = sys.argv[1] if len(sys.argv) > 1 else None
     client = Client(client_name)
     while True:
-        q_method = inquirer.List(name='method', message='Choose an operation', choices=[
-                                 "GetServerList", "JoinServer", "LeaveServer", "PublishArticle", "GetArticles", "Exit"])
-        method = inquirer.prompt([q_method], theme=BlueComposure())['method']
+        q_method = inquirer.List(
+            name="method",
+            message="Choose an operation",
+            choices=[
+                "GetServerList",
+                "JoinServer",
+                "LeaveServer",
+                "PublishArticle",
+                "GetArticles",
+                "Exit",
+            ],
+        )
+        method = inquirer.prompt([q_method], theme=BlueComposure())["method"]
 
         if method == "Exit":
             exit()
 
         params = None
-        if method == 'GetServerList':
+        if method == "GetServerList":
             response = client.get_server_list(registry_name)
-            print(Fore.GREEN, response.decode(), end='\n\n')
+            print(Fore.GREEN, response.decode(), end="\n\n")
         else:
             q_server_id = inquirer.Text(
-                name='server_id', message='Enter server id', validate=lambda _, x: x != '')
-            server_id = inquirer.prompt(
-                [q_server_id], theme=BlueComposure())['server_id']
+                name="server_id",
+                message="Enter server id",
+                validate=lambda _, x: x != "",
+            )
+            server_id = inquirer.prompt([q_server_id], theme=BlueComposure())[
+                "server_id"
+            ]
 
-            if method == 'PublishArticle':
+            if method == "PublishArticle":
                 q_article = [
-                    inquirer.List(name='type', message='Enter article type', choices=[
-                                  'SPORTS', 'FASHION', 'POLITICS']),
+                    inquirer.List(
+                        name="type",
+                        message="Enter article type",
+                        choices=["SPORTS", "FASHION", "POLITICS"],
+                    ),
                     inquirer.Text(
-                        name='author', message='Enter author name', validate=lambda _, x: x != ''),
-                    inquirer.Text(name='content',
-                                  message='Enter article content', validate=lambda _, x: x != ''),
+                        name="author",
+                        message="Enter author name",
+                        validate=lambda _, x: x != "",
+                    ),
+                    inquirer.Text(
+                        name="content",
+                        message="Enter article content",
+                        validate=lambda _, x: x != "",
+                    ),
                 ]
                 answers = inquirer.prompt(q_article, theme=BlueComposure())
-                article_type = answers['type']
-                author = answers['author'].strip()
-                content = answers['content'].strip()
-                content = content[:min(len(content), 200)]
-                params = json.dumps({
-                    'type': article_type,
-                    'author': author,
-                    'content': content
-                })
-            elif method == 'GetArticles':
+                article_type = answers["type"]
+                author = answers["author"].strip()
+                content = answers["content"].strip()
+                content = content[: min(len(content), 200)]
+                params = json.dumps(
+                    {"type": article_type, "author": author, "content": content}
+                )
+            elif method == "GetArticles":
                 q_article = [
-                    inquirer.List(name='type', message='Enter article type', choices=[
-                                  'SPORTS', 'FASHION', 'POLITICS']),
+                    inquirer.List(
+                        name="type",
+                        message="Enter article type",
+                        choices=["_", "SPORTS", "FASHION", "POLITICS"],
+                    ),
                     inquirer.Text(
-                        name='author', message='Enter author name', validate=lambda _, x: x != ''),
+                        name="author",
+                        message="Enter author name",
+                        validate=lambda _, x: x != "",
+                    ),
                     inquirer.Text(
-                        name='date', message='Enter date (DD/MM/YYYY)', validate=lambda _, x: x != ''),
+                        name="date",
+                        message="Enter date (DD/MM/YYYY)",
+                        validate=lambda _, x: x != "",
+                    ),
                 ]
                 answers = inquirer.prompt(q_article, theme=BlueComposure())
-                article_type = answers['type']
-                author = answers['author']
-                date = answers['date']
+                article_type = answers["type"]
+                author = answers["author"]
+                date = answers["date"]
                 if not article_type or not author or not date:
-                    print('Invalid params!')
-                elif date == '_' or (article_type == '_' and author == '_'):
-                    print('Invalid params!')
-                params = json.dumps({
-                    'type': article_type if article_type != '_' else None,
-                    'author': author if author != '_' else None,
-                    'date': date
-                })
+                    print("Invalid params!")
+                elif date == "_":
+                    print("Invalid params!")
+                params = json.dumps(
+                    {
+                        "type": article_type if article_type != "_" else None,
+                        "author": author if author != "_" else None,
+                        "date": date,
+                    }
+                )
 
-            response = client.call(f'{server_id}_server_rpc', method, params)
+            response = client.call(f"{server_id}_server_rpc", method, params)
             if not response:
-                print(Fore.RED, 'No response from server!', end='\n\n')
-            elif 'FAILURE' in response.decode():
-                print(Fore.RED, response.decode(), end='\n\n')
+                print(Fore.RED, "No response from server!", end="\n\n")
+            elif "FAILURE" in response.decode():
+                print(Fore.RED, response.decode(), end="\n\n")
             else:
-                print(Fore.GREEN, response.decode(), end='\n\n')
+                print(Fore.GREEN, response.decode(), end="\n\n")

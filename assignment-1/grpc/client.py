@@ -21,6 +21,10 @@ class Client:
             if len(servers) == 0:
                 print("No servers available.")
                 return
+
+            for server in servers:
+                print(f"{server.name} - {server.address}")
+
             questions = [
                 inquirer.List(
                     "server",
@@ -36,6 +40,11 @@ class Client:
         with grpc.insecure_channel(self.server_address) as channel:
             stub = discord_pb2_grpc.ServerStub(channel)
             response = stub.Join(discord_pb2.JoinServerRequest(clientId=self.client_id))
+            if response.status == discord_pb2.Status.ERROR:
+                print(f"[*] {response.message}")
+                print("FAIL")
+                return
+            print("SUCCESS")
 
     def leave(self):
         with grpc.insecure_channel(self.server_address) as channel:
@@ -43,6 +52,11 @@ class Client:
             response = stub.Leave(
                 discord_pb2.LeaveServerRequest(clientId=self.client_id)
             )
+            if response.status == discord_pb2.Status.ERROR:
+                print(f"[*] {response.message}")
+                print("FAIL")
+                return
+            print("SUCCESS")
 
     def get_articles(self):
         questions = [
@@ -94,6 +108,14 @@ class Client:
             ),
         ]
         answers = inquirer.prompt(questions)
+        if (
+            not answers["title"]
+            or not answers["author"]
+            or not answers["content"]
+            or not answers["type"]
+        ):
+            print("All fields are required.")
+            return
         with grpc.insecure_channel(self.server_address) as channel:
             stub = discord_pb2_grpc.ServerStub(channel)
             response = stub.PublishArticle(
