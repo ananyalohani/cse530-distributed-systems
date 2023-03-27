@@ -51,7 +51,7 @@ class Server(object):
         self.correlation_id = str(uuid.uuid4())
         self.channel.basic_publish(exchange='', routing_key=f'{registry_name}_registry_rpc',
                                    properties=pika.BasicProperties(reply_to=self.callback_queue, correlation_id=self.correlation_id), body=json.dumps({'method': 'Register', 'params': {'server_id': f'{self.server_id}'}}))
-        self.connection.process_data_events(time_limit=10)
+        self.connection.process_data_events(time_limit=50)
         return self.response
 
     def send_articles(self):
@@ -150,7 +150,7 @@ class Server(object):
                 self.response = None
                 self.channel.basic_publish(exchange='', routing_key=f'{self.parent_server_id}_server_rpc',
                                            properties=pika.BasicProperties(reply_to=self.callback_queue, correlation_id=self.correlation_id), body=json.dumps({'method': 'GetParentArticles', 'server_id': self.server_id}))
-                self.connection.process_data_events(time_limit=5)
+                self.connection.process_data_events(time_limit=50)
             else:
                 self.send_articles()
 
