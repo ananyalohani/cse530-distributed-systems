@@ -59,7 +59,7 @@ class Server(object):
                 {"method": "Register", "params": {"server_id": f"{self.server_id}"}}
             ),
         )
-        self.connection.process_data_events(time_limit=10)
+        self.connection.process_data_events(time_limit=50)
         return self.response
 
     def send_articles(self):
@@ -230,7 +230,7 @@ class Server(object):
                         {"method": "GetParentArticles", "server_id": self.server_id}
                     ),
                 )
-                self.connection.process_data_events(time_limit=5)
+                self.connection.process_data_events(time_limit=50)
             else:
                 self.send_articles()
 
