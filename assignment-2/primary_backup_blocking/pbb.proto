@@ -24,19 +24,20 @@ message Timestamp {
 
 // Server<>Registry
 message RegisterRequest {
-    string address = 1;
-    string port = 2;
+    string id = 1;
+    string address = 2;
+    string port = 3;
 }
 
 message RegisterResponse {
     Status status = 1;
-    string message = 1;
-    ReplicaType replica = 2;
+    string message = 2;
+    ReplicaType replica = 3;
 }
 
 message ReplicaType {
-    string address = 2;
-    string port = 3;
+    string address = 1;
+    string port = 2;
 }
 
 // Client<>Registry
@@ -59,8 +60,9 @@ message WriteRequest {
 
 message WriteResponse {
     Status status = 1;
-    UUID uuid = 2;
-    Timestamp version = 3;
+    string message = 2;
+    UUID uuid = 3;
+    Timestamp version = 4;
 }
 
 message ReadRequest {

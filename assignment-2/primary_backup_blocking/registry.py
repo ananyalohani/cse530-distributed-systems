@@ -34,6 +34,7 @@ class RegistryServicer(pbb_pb2_grpc.RegistryServicer):
                 message=f"Server '{address}:{port}' registered as primary.",
                 replica=self.primary
             )
+        # TODO: inform primary about new replica
         return pbb_pb2.RegisterResponse(
             status=pbb_pb2.Status.OK,
             message=f"Server '{address}:{port}' registered.",
@@ -58,6 +59,7 @@ def serve():
     registry.start()
     print(f"[.] Registry node started on {registry_address}")
     registry.wait_for_termination()
+
 
 if __name__ == "__main__":
     serve()
