@@ -1,0 +1,90 @@
+syntax = "proto3";
+
+package pbb;
+
+
+message BaseResponse {
+    string status = 1;
+    string message = 2;
+}
+
+message UUID {
+    required string value = 1;
+}
+
+message Timestamp {
+    // UNIX Timestamp
+    required int64 value = 1;
+}
+
+// Server<>Registry
+message RegisterRequest {
+    string address = 1;
+    string port = 2;
+}
+
+message RegisterResponse {
+    string message = 1;
+    ReplicaType replica = 2;
+}
+
+message ReplicaType {
+    string address = 2;
+    string port = 3;
+}
+
+// Client<>Registry
+message GetReplicaListRequest {
+    string name = 1;
+    string address = 2;
+    string port = 3;
+}
+
+message GetReplicaListResponse {
+    repeated ReplicaType replicas = 1;
+}
+
+// Client<>Server
+message WriteRequest {
+    string name = 1;
+    string content = 2;
+    UUID uuid = 3;
+}
+
+message WriteResponse {
+    string status = 1;
+    UUID uuid = 2;
+    Timestamp version = 3;
+}
+
+message ReadRequest {
+    UUID uuid = 1;
+}
+
+message ReadResponse {
+    string status = 1;
+    string name = 2;
+    string content = 3;
+    Timestamp version = 4;
+}
+
+message DeleteRequest {
+    UUID uuid = 1;
+}
+
+message DeleteResponse {
+    string status = 1;
+}
+
+service Registry {
+    rpc Register(RegisterRequest) returns (RegisterResponse);
+    rpc GetReplicaList(GetReplicaListRequest) returns (GetReplicaListResponse);
+}
+
+service Replica {
+    rpc Read(ReadRequest) returns (ReadResponse);
+    rpc Write(WriteRequest) returns (WriteResponse);
+    rpc Delete(DeleteRequest) returns (DeleteResponse);
+
+    rpc InformPrimary(ReplicaType) returns (BaseResponse);
+}
