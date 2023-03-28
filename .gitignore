@@ -2,3 +2,6 @@
 discord_pb2.py
 discord_pb2_grpc.py
 __pycache__
+
+pbb_pb2.py
+pbb_pb2_grpc.py

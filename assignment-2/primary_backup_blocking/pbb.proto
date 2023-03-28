@@ -2,19 +2,24 @@ syntax = "proto3";
 
 package pbb;
 
+enum Status {
+    UNKNOWN = 0;
+    OK = 1;
+    ERROR = 2;
+}
 
 message BaseResponse {
-    string status = 1;
+    Status status = 1;
     string message = 2;
 }
 
 message UUID {
-    required string value = 1;
+    string value = 1;
 }
 
 message Timestamp {
     // UNIX Timestamp
-    required int64 value = 1;
+    int64 value = 1;
 }
 
 // Server<>Registry
@@ -24,6 +29,7 @@ message RegisterRequest {
 }
 
 message RegisterResponse {
+    Status status = 1;
     string message = 1;
     ReplicaType replica = 2;
 }
@@ -52,7 +58,7 @@ message WriteRequest {
 }
 
 message WriteResponse {
-    string status = 1;
+    Status status = 1;
     UUID uuid = 2;
     Timestamp version = 3;
 }
@@ -62,7 +68,7 @@ message ReadRequest {
 }
 
 message ReadResponse {
-    string status = 1;
+    Status status = 1;
     string name = 2;
     string content = 3;
     Timestamp version = 4;
@@ -70,10 +76,6 @@ message ReadResponse {
 
 message DeleteRequest {
     UUID uuid = 1;
-}
-
-message DeleteResponse {
-    string status = 1;
 }
 
 service Registry {
@@ -84,7 +86,7 @@ service Registry {
 service Replica {
     rpc Read(ReadRequest) returns (ReadResponse);
     rpc Write(WriteRequest) returns (WriteResponse);
-    rpc Delete(DeleteRequest) returns (DeleteResponse);
+    rpc Delete(DeleteRequest) returns (BaseResponse);
 
     rpc InformPrimary(ReplicaType) returns (BaseResponse);
 }
