@@ -24,31 +24,28 @@ message Timestamp {
 
 // Server<>Registry
 message RegisterRequest {
-    string id = 1;
     string address = 2;
-    string port = 3;
 }
 
 message RegisterResponse {
     Status status = 1;
     string message = 2;
-    ReplicaType replica = 3;
+    string primary_address = 3;
+    int32 replica_id = 4;
 }
 
-message ReplicaType {
-    string address = 1;
-    string port = 2;
+message InformPrimaryRequest {
+    string replica_address = 1;
 }
 
 // Client<>Registry
 message GetReplicaListRequest {
     string name = 1;
     string address = 2;
-    string port = 3;
 }
 
 message GetReplicaListResponse {
-    repeated ReplicaType replicas = 1;
+    repeated string replicas = 1;
 }
 
 // Client<>Server
@@ -90,5 +87,5 @@ service Replica {
     rpc Write(WriteRequest) returns (WriteResponse);
     rpc Delete(DeleteRequest) returns (BaseResponse);
 
-    rpc InformPrimary(ReplicaType) returns (BaseResponse);
+    rpc InformPrimary(InformPrimaryRequest) returns (BaseResponse);
 }

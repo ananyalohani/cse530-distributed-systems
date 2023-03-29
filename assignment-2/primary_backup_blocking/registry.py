@@ -1,6 +1,7 @@
 import socket
 from urllib.parse import unquote
 from concurrent import futures
+import os
 
 import pbb_pb2
 import pbb_pb2_grpc
@@ -9,36 +10,45 @@ import grpc
 
 class RegistryServicer(pbb_pb2_grpc.RegistryServicer):
     replica_list = []
-    primary = {
-        'address': None,
-        'port': None
-    }
+    primary = None
 
     def Register(self, request, context):
         address = request.address
-        port = request.port
-        print(f"[.] REGISTER REQUEST FROM {address}:{port}")
-        if any(s.address == address and s.port == port for s in self.replica_list):
+        print(f"[.] REGISTER REQUEST FROM {address}")
+        if any(r_address == address for r_address in self.replica_list):
             return pbb_pb2.RegisterResponse(
                 status=pbb_pb2.Status.ERROR,
-                message=f"Server '{address}:{port}' already registered.",
-                replica=None
+                message=f"Server {address} already registered.",
+                primary_address=None,
+                replica_id=None
             )
-        self.replica_list.append(
-            pbb_pb2.ServerInfo(address=address, port=port))
-        if self.primary['address'] is None:
-            self.primary['address'] = address
-            self.primary['port'] = port
+        self.replica_list.append(address)
+        replica_id = len(self.replica_list)
+        path = os.path.join(os.getcwd(), f'replica_{replica_id}')
+        if not os.path.exists(path):
+            os.mkdir(path)
+        if not self.primary:
+            self.primary = address
             return pbb_pb2.RegisterResponse(
                 status=pbb_pb2.Status.OK,
-                message=f"Server '{address}:{port}' registered as primary.",
-                replica=self.primary
+                message=f"Server {address} registered as primary.",
+                primary_address=address,
+                replica_id=replica_id
             )
-        # TODO: inform primary about new replica
+        if address != self.primary:
+            with grpc.insecure_channel(self.primary) as channel:
+                stub = pbb_pb2_grpc.ReplicaStub(channel)
+                response = stub.InformPrimary(
+                    pbb_pb2.InformPrimaryRequest(
+                        replica_address=address,
+                    )
+                )
+                print(f"[.] {response.message}")
         return pbb_pb2.RegisterResponse(
             status=pbb_pb2.Status.OK,
-            message=f"Server '{address}:{port}' registered.",
-            replica=self.primary
+            message=f"Server {address} registered.",
+            primary_address=self.primary,
+            replica_id=replica_id
         )
 
     def GetReplicaList(self, request, context):

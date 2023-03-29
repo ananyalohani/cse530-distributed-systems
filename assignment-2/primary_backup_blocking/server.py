@@ -4,6 +4,7 @@ from nanoid import generate
 from urllib.parse import unquote
 import time
 import os
+import sys
 
 import pbb_pb2
 import pbb_pb2_grpc
@@ -16,37 +17,32 @@ MAX_LENGTH = 1000
 
 class ReplicaServicer(pbb_pb2_grpc.ReplicaServicer):
     id = None
-    primary = {
-        'address': None,
-        'port': None
-    }
+    address = None
+    registry_address = None
+    primary = None
     replica_list = None
     datastore = {}
 
-    def __init__(self, address, port, registry_address):
-        self.id = generate(size=10)
+    def __init__(self, address, registry_address):
+        self.address = address
+        self.registry_address = registry_address
         print(
-            f"[.] Registering replica at {address}:{port} with registry @ {registry_address}...")
+            f"[.] Registering replica at {address} with registry @ {registry_address}...")
         with grpc.insecure_channel(registry_address) as channel:
             stub = pbb_pb2_grpc.RegistryStub(channel)
             response = stub.Register(
                 pbb_pb2.RegisterRequest(
-                    id=self.id,
                     address=address,
-                    port=port
                 )
             )
             if response.status == pbb_pb2.Status.ERROR:
                 print(f"[*] {response.message}")
-                print("FAIL")
                 return
-            self.primary['address'] = response.replica.address
-            self.primary['port'] = response.replica.port
-            if response.replica.address == address and response.replica.port == port:
+            self.id = response.replica_id
+            self.primary = response.primary_address
+            if response.primary_address == address:
                 self.replica_list = []
-                return
             print(f"[.] {response.message}")
-            print("SUCCESS")
 
     def Read(self, request, context):
         print(
@@ -109,7 +105,30 @@ class ReplicaServicer(pbb_pb2_grpc.ReplicaServicer):
 
     def InformPrimary(self, request, context):
         print(
-            f"[.] Inform request received from registry {unquote(context.peer())}")
-        replicas = request.replicas
-        self.replica_list.extend(replicas)
+            f"[.] Inform request received from registry {self.registry_address}")
+        replica = request.replica_address
+        if self.address == self.primary:
+            self.replica_list.append(replica)
         return pbb_pb2.BaseResponse(status=pbb_pb2.Status.OK, message="Replica list updated.")
+
+
+def serve(registry_address):
+    port = 0
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(("", 0))
+        port = s.getsockname()[1]
+    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
+    server_address = f"[::]:{port}"
+    pbb_pb2_grpc.add_ReplicaServicer_to_server(
+        ReplicaServicer(
+            server_address, registry_address), server
+    )
+    server.add_insecure_port(server_address)
+    server.start()
+    print(f"[.] Server node started on {server_address}")
+    server.wait_for_termination()
+
+
+if __name__ == "__main__":
+    registry_address = sys.argv[1]
+    serve(registry_address)
