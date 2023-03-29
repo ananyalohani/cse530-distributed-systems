@@ -24,7 +24,7 @@ class RegistryServicer(pbb_pb2_grpc.RegistryServicer):
             )
         self.replica_list.append(address)
         replica_id = len(self.replica_list)
-        path = os.path.join(os.getcwd(), f'replica_{replica_id}')
+        path = os.path.join(os.getcwd(), f'data/replica_{replica_id}')
         if not os.path.exists(path):
             os.mkdir(path)
         if not self.primary:
