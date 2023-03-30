@@ -2,6 +2,7 @@ import registry
 import server
 import client
 
+import time
 import uuid
 
 if __name__ == "__main__":
@@ -12,23 +13,22 @@ if __name__ == "__main__":
     # c
     cl = client.Client()
 
-    # e
-    replicas = cl.get_replica_list()
-
     # d
+    replicas = cl.get_replica_list()
     file_uuid1 = uuid.uuid4()
     cl.write(
         filename="sample.txt",
         content="Hello, world",
         file_uuid=file_uuid1,
-        replica=replicas[0]
     )
+    time.sleep(2)
 
-    # for rp in replicas:
-    cl.read(
-        file_uuid=file_uuid1,
-        replica=replicas[0]
-    )
+    # e
+    for rp in replicas:
+        cl.read(
+            file_uuid=file_uuid1,
+            replica=rp
+        )
 
     # f
     file_uuid2 = uuid.uuid4()
@@ -36,22 +36,23 @@ if __name__ == "__main__":
         filename="test.txt",
         content="Bye, world",
         file_uuid=file_uuid2,
-        replica=replicas[0]
     )
+    time.sleep(2)
 
     # g
-    # for rp in replicas:
-    cl.read(
-        file_uuid=file_uuid2,
-        replica=replicas[0]
-    )
+    for rp in replicas:
+        cl.read(
+            file_uuid=file_uuid2,
+            replica=rp
+        )
 
     # h
     cl.delete(file_uuid=file_uuid1, replica=replicas[0])
+    time.sleep(2)
 
     # i
-    # for rp in replicas:
-    cl.read(
-        file_uuid=file_uuid1,
-        replica=replicas[0]
-    )
+    for rp in replicas:
+        cl.read(
+            file_uuid=file_uuid1,
+            replica=rp
+        )

@@ -16,9 +16,10 @@ MAX_LENGTH = 1000
 
 
 class ReplicaServicer(pbb_pb2_grpc.ReplicaServicer):
+    REGISTRY_ADDRESS = "[::]:56149"
+
     id = None
     address = None
-    REGISTRY_ADDRESS = "[::]:56149"
     primary = None
     replica_list = None
     datastore = {}
@@ -72,9 +73,7 @@ class ReplicaServicer(pbb_pb2_grpc.ReplicaServicer):
             version=file[1]
         )
 
-    def Write(self, request, context):
-        print(
-            f"[.] Write request received from client {unquote(context.peer())}")
+    def write_to_replica(self, request):
         path = os.path.join(os.getcwd(), f"data/replica_{self.id}")
         files = os.listdir(path)
         if request.uuid not in self.datastore and request.filename in files:
@@ -87,42 +86,110 @@ class ReplicaServicer(pbb_pb2_grpc.ReplicaServicer):
                 status=pbb_pb2.Status.ERROR,
                 message="WRITE FAILURE: Deleted file cannot be updated."
             )
-        timestamp = None
-        if request.uuid not in self.datastore:
-            timestamp = time.time()
-            self.datastore[request.uuid] = (request.filename, int(timestamp))
+        self.datastore[request.uuid] = (
+            request.filename, request.timestamp)
         path = os.path.join(path, request.filename)
         fo = open(path, "w")
         fo.write(request.content)
-        # TODO: Send WRITE update to all replicas or primary
         return pbb_pb2.WriteResponse(
             status=pbb_pb2.Status.OK,
             message="WRITE SUCCESS",
-            version=int(timestamp) or self.datastore[request.uuid][1],
+            version=request.timestamp or self.datastore[request.uuid][1],
             uuid=request.uuid
         )
 
-    def Delete(self, request, context):
+    def Write(self, request, context):
         print(
-            f"[.] Delete request received from client {unquote(context.peer())}")
+            f"[.] Write request received from client {request.from_address}")
+        if self.is_primary:
+            timestamp = int(time.time())
+            replica_list = list(
+                filter(lambda x: x != self.address, self.replica_list))
+            primary_response = self.write_to_replica(request)
+            if primary_response.status == pbb_pb2.Status.ERROR:
+                return primary_response
+            for rp in replica_list:
+                with grpc.insecure_channel(rp) as channel:
+                    stub = pbb_pb2_grpc.ReplicaStub(channel)
+                    response = stub.Write(
+                        pbb_pb2.WriteRequest(
+                            filename=request.filename,
+                            content=request.content,
+                            uuid=request.uuid,
+                            from_address=self.address,
+                            timestamp=timestamp,
+                        )
+                    )
+                    return response
+            return primary_response
+        elif not self.is_primary and request.from_address != self.primary:
+            with grpc.insecure_channel(self.primary) as channel:
+                stub = pbb_pb2_grpc.ReplicaStub(channel)
+                response = stub.Write(
+                    pbb_pb2.WriteRequest(
+                        filename=request.filename,
+                        content=request.content,
+                        uuid=request.uuid,
+                        from_address=self.address,
+                    )
+                )
+                return response
+        return self.write_to_replica(request)
+
+    def delete_from_replica(self, request):
         if request.uuid not in self.datastore:
             return pbb_pb2.BaseResponse(
-                status=pbb_pb2.Status.ERROR, message="DELETE FAILURE: File does not exist."
+                status=pbb_pb2.Status.ERROR,
+                message="DELETE FAILURE: File does not exist."
             )
         path = os.path.join(os.getcwd(), f"data/replica_{self.id}")
         files = os.listdir(path)
         name = self.datastore[request.uuid][0]
+        self.datastore[request.uuid] = (name, request.timestamp)
         if name not in files:
             return pbb_pb2.BaseResponse(
                 status=pbb_pb2.Status.ERROR,
                 message="DELETE FAILURE: File already deleted."
             )
         os.remove(os.path.join(path, name))
-        # TODO: Send DELETE update to all replicas or primary
         return pbb_pb2.BaseResponse(
             status=pbb_pb2.Status.OK,
             message="DELETE SUCCESS"
         )
+
+    def Delete(self, request, context):
+        print(
+            f"[.] Delete request received from client {request.from_address}")
+        if self.is_primary:
+            timestamp = int(time.time())
+            replica_list = list(
+                filter(lambda x: x != self.address, self.replica_list))
+            primary_response = self.delete_from_replica(request)
+            if primary_response.status == pbb_pb2.Status.ERROR:
+                return primary_response
+            for rp in replica_list:
+                with grpc.insecure_channel(rp) as channel:
+                    stub = pbb_pb2_grpc.ReplicaStub(channel)
+                    response = stub.Delete(
+                        pbb_pb2.DeleteRequest(
+                            uuid=request.uuid,
+                            from_address=self.address,
+                            timestamp=timestamp
+                        )
+                    )
+                    return response
+            return primary_response
+        elif not self.is_primary and request.from_address != self.primary:
+            with grpc.insecure_channel(self.primary) as channel:
+                stub = pbb_pb2_grpc.ReplicaStub(channel)
+                response = stub.Delete(
+                    pbb_pb2.DeleteRequest(
+                        uuid=request.uuid,
+                        from_address=self.address,
+                    )
+                )
+                return response
+        return self.delete_from_replica(request)
 
     def InformPrimary(self, request, context):
         print(
@@ -141,7 +208,7 @@ def serve():
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind(("", 0))
         port = s.getsockname()[1]
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=1))
+    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
     server_address = f"[::]:{port}"
     pbb_pb2_grpc.add_ReplicaServicer_to_server(
         ReplicaServicer(

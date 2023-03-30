@@ -25,7 +25,7 @@ class Client:
             print(f"[.] Status message: {response.message}")
             print(f"    File: {response.filename}")
             print(f"    Content: {response.content}")
-            print(f"    Version: {response.version}")
+            print(f"    Version: {response.version}\n")
 
     def write(self, filename, content, file_uuid, replica=None):
         rp = replica or self.get_replica_for_request()
@@ -35,12 +35,13 @@ class Client:
                 pbb_pb2.WriteRequest(
                     filename=filename,
                     content=content,
-                    uuid=str(file_uuid)
+                    uuid=str(file_uuid),
+                    from_address=self.client_id,
                 )
             )
             print(f"[.] Status message: {response.message}")
             print(f"    UUID: {response.uuid}")
-            print(f"    Version: {response.version}")
+            print(f"    Version: {response.version}\n")
 
     def delete(self, file_uuid, replica=None):
         rp = replica or self.get_replica_for_request()
@@ -52,6 +53,7 @@ class Client:
                 )
             )
             print(f"[.] Status message: {response.message}")
+            print(f"    UUID: {file_uuid}\n")
 
     def get_replica_for_request(self):
         self.get_replica_list()
