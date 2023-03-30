@@ -13,15 +13,6 @@ message BaseResponse {
     string message = 2;
 }
 
-message UUID {
-    string value = 1;
-}
-
-message Timestamp {
-    // UNIX Timestamp
-    int64 value = 1;
-}
-
 // Server<>Registry
 message RegisterRequest {
     string address = 2;
@@ -50,31 +41,32 @@ message GetReplicaListResponse {
 
 // Client<>Server
 message WriteRequest {
-    string name = 1;
+    string filename = 1;
     string content = 2;
-    UUID uuid = 3;
+    string uuid = 3;
 }
 
 message WriteResponse {
     Status status = 1;
     string message = 2;
-    UUID uuid = 3;
-    Timestamp version = 4;
+    string uuid = 3;
+    int64 version = 4;
 }
 
 message ReadRequest {
-    UUID uuid = 1;
+    string uuid = 1;
 }
 
 message ReadResponse {
     Status status = 1;
-    string name = 2;
-    string content = 3;
-    Timestamp version = 4;
+    string message = 2;
+    string filename = 3;
+    string content = 4;
+    int64 version = 5;
 }
 
 message DeleteRequest {
-    UUID uuid = 1;
+    string uuid = 1;
 }
 
 service Registry {

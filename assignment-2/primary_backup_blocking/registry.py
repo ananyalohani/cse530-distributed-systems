@@ -19,8 +19,6 @@ class RegistryServicer(pbb_pb2_grpc.RegistryServicer):
             return pbb_pb2.RegisterResponse(
                 status=pbb_pb2.Status.ERROR,
                 message=f"Server {address} already registered.",
-                primary_address=None,
-                replica_id=None
             )
         self.replica_list.append(address)
         replica_id = len(self.replica_list)
@@ -53,16 +51,15 @@ class RegistryServicer(pbb_pb2_grpc.RegistryServicer):
 
     def GetReplicaList(self, request, context):
         print(
-            f"[.] REPLICA LIST REQUEST FROM {request.address}:{unquote(context.peer())}")
+            f"[.] REPLICA LIST REQUEST FROM CLIENT {request.name}")
         return pbb_pb2.GetReplicaListResponse(replicas=self.replica_list)
 
 
 def serve():
-    port = 0
+    PORT = 56149
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.bind(("", 0))
-        port = s.getsockname()[1]
-    registry_address = f"[::]:{port}"
+        s.bind(("", PORT))
+    registry_address = f"[::]:{PORT}"
     registry = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
     pbb_pb2_grpc.add_RegistryServicer_to_server(RegistryServicer(), registry)
     registry.add_insecure_port(registry_address)
