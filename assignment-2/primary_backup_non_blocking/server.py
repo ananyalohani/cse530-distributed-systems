@@ -47,7 +47,7 @@ class ReplicaServicer(pbn_pb2_grpc.ReplicaServicer):
     def Read(self, request, context):
         from_address = request.from_address or unquote(context.peer())
         print(
-            f"[.] READ request received from client {from_address}")
+            f"[.] READ request received from {from_address}")
         if request.uuid not in self.datastore:
             return pbn_pb2.ReadResponse(
                 status=pbn_pb2.Status.ERROR,
@@ -100,6 +100,7 @@ class ReplicaServicer(pbn_pb2_grpc.ReplicaServicer):
         replica_list = list(
             filter(lambda x: x != self.address, self.replica_list))
         response = None
+        time.sleep(2)
         for rp in replica_list:
             with grpc.insecure_channel(rp) as channel:
                 stub = pbn_pb2_grpc.ReplicaStub(channel)
@@ -111,7 +112,7 @@ class ReplicaServicer(pbn_pb2_grpc.ReplicaServicer):
 
     def Write(self, request, context):
         from_address = request.from_address or unquote(context.peer())
-        print(f"[.] WRITE request received from client {from_address}")
+        print(f"[.] WRITE request received from {from_address}")
         if self.is_primary:
             request.version = int(time.time())
             thread = threading.Thread(
@@ -167,6 +168,7 @@ class ReplicaServicer(pbn_pb2_grpc.ReplicaServicer):
         replica_list = list(
             filter(lambda x: x != self.address, self.replica_list))
         response = None
+        time.sleep(2)
         for rp in replica_list:
             with grpc.insecure_channel(rp) as channel:
                 stub = pbn_pb2_grpc.ReplicaStub(channel)
@@ -178,7 +180,7 @@ class ReplicaServicer(pbn_pb2_grpc.ReplicaServicer):
 
     def Delete(self, request, context):
         from_address = request.from_address or unquote(context.peer())
-        print(f"[.] DELETE request received from client {from_address}")
+        print(f"[.] DELETE request received from {from_address}")
         if self.is_primary:
             request.version = int(time.time())
             thread = threading.Thread(
@@ -186,7 +188,7 @@ class ReplicaServicer(pbn_pb2_grpc.ReplicaServicer):
                 args=(
                     pbn_pb2.DeleteRequest(
                         uuid=request.uuid,
-                        version=request.timestamp,
+                        version=request.version,
                         from_address=self.address,
                     ),
                 ),
@@ -215,7 +217,7 @@ class ReplicaServicer(pbn_pb2_grpc.ReplicaServicer):
         if self.address == self.primary:
             self.replica_list.append(replica)
         return pbn_pb2.BaseResponse(
-            status=pbn_pb2.Status.OK, message="Replica list updated."
+            status=pbn_pb2.Status.OK, message="Replica list updated BY PRIMARY"
         )
 
 

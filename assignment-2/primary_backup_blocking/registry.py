@@ -2,6 +2,7 @@ import socket
 from urllib.parse import unquote
 from concurrent import futures
 import os
+import shutil
 
 import pbb_pb2
 import pbb_pb2_grpc
@@ -14,7 +15,7 @@ class RegistryServicer(pbb_pb2_grpc.RegistryServicer):
 
     def Register(self, request, context):
         address = request.address
-        print(f"[.] REGISTER REQUEST FROM {address}")
+        print(f"[.] REGISTER request from {address}")
         if any(r_address == address for r_address in self.replica_list):
             return pbb_pb2.RegisterResponse(
                 status=pbb_pb2.Status.ERROR,
@@ -50,12 +51,20 @@ class RegistryServicer(pbb_pb2_grpc.RegistryServicer):
         )
 
     def GetReplicaList(self, request, context):
-        print(f"[.] REPLICA LIST REQUEST FROM CLIENT {request.name}")
+        print(f"[.] REPLICA LIST request from client {request.name}")
         return pbb_pb2.GetReplicaListResponse(replicas=self.replica_list)
 
 
+def cleanup():
+    pattern = "replica_"
+    dir = os.getcwd() + "/data"
+    for f in os.listdir(dir):
+        if f.startswith(pattern):
+            shutil.rmtree(os.path.join(dir, f))
+
+
 def serve():
-    PORT = 56149
+    PORT = 5555
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind(("", PORT))
     registry_address = f"[::]:{PORT}"
@@ -68,4 +77,5 @@ def serve():
 
 
 if __name__ == "__main__":
+    cleanup()
     serve()

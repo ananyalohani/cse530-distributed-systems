@@ -2,8 +2,10 @@ import registry
 import server
 import client
 
+import os
 import time
 import uuid
+
 
 if __name__ == "__main__":
     # TODO: a Run registry
@@ -21,7 +23,6 @@ if __name__ == "__main__":
         content="Hello, world",
         file_uuid=file_uuid1,
     )
-    time.sleep(2)
 
     # e
     for rp in replicas:
@@ -37,7 +38,6 @@ if __name__ == "__main__":
         content="Bye, world",
         file_uuid=file_uuid2,
     )
-    time.sleep(2)
 
     # g
     for rp in replicas:
@@ -48,7 +48,6 @@ if __name__ == "__main__":
 
     # h
     cl.delete(file_uuid=file_uuid1, replica=replicas[0])
-    time.sleep(2)
 
     # i
     for rp in replicas:

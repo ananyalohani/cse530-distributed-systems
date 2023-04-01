@@ -17,7 +17,12 @@ class Client:
         rp = replica or self.get_replica_for_request()
         with grpc.insecure_channel(rp) as channel:
             stub = pbn_pb2_grpc.ReplicaStub(channel)
-            response = stub.Read(pbn_pb2.ReadRequest(uuid=str(file_uuid)))
+            response = stub.Read(
+                pbn_pb2.ReadRequest(
+                    uuid=str(file_uuid),
+                    from_address=self.client_id,
+                )
+            )
             print(f"[.] Status message: {response.message}")
             print(f"    File: {response.filename or 'None'}")
             print(f"    Content: {response.content or 'None'}")
