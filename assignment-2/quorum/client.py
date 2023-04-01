@@ -14,12 +14,10 @@ class Client:
         self.client_id = str(uuid.uuid4())
 
     def check_valid_response(self, response, final_response):
-        is_valid = response.status == pbb_pb2.Status.OK and not final_response
+        is_valid = not final_response
         if not is_valid:
             try:
-                is_valid = (
-                    response.version and response.version > final_response.version
-                )
+                is_valid = response.version > final_response.version
             except AttributeError:
                 pass
         return is_valid
@@ -38,6 +36,8 @@ class Client:
                 final_response = response
         if final_response is None or final_response.status == pbb_pb2.Status.ERROR:
             print("[.] Status message: READ FAILURE")
+            if final_response is not None:
+                print(f"    Message: {final_response.message}")
             return
         print(f"[.] Status message: {final_response.message}")
         print(f"    File: {final_response.filename or 'None'}")

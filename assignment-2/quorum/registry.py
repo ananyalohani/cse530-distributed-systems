@@ -7,6 +7,7 @@ import random
 import pbb_pb2
 import pbb_pb2_grpc
 import grpc
+from test import cleanup
 
 
 class RegistryServicer(pbb_pb2_grpc.RegistryServicer):
@@ -25,6 +26,8 @@ class RegistryServicer(pbb_pb2_grpc.RegistryServicer):
         )
 
     def __init__(self):
+        cleanup()
+
         while not self.is_quorum_satisfied():
             self.quorum_data["N"] = int(input("Number of replicas: "))
             self.quorum_data["N_R"] = int(input("Read quorum size: "))

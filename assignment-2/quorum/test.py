@@ -1,9 +1,18 @@
-import registry
-import server
 import client
 
 import time
 import uuid
+import os
+import shutil
+
+
+def cleanup():
+    pattern = "replica_"
+    dir = os.getcwd() + "/data"
+    for f in os.listdir(dir):
+        if f.startswith(pattern):
+            shutil.rmtree(os.path.join(dir, f))
+
 
 if __name__ == "__main__":
     # TODO: a Run registry

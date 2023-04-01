@@ -12,8 +12,6 @@ import grpc
 
 MAX_LENGTH = 1000
 
-# ! TODO: TEST THE CODE!
-
 
 class ReplicaServicer(pbb_pb2_grpc.ReplicaServicer):
     REGISTRY_ADDRESS = "[::]:56149"
@@ -53,7 +51,7 @@ class ReplicaServicer(pbb_pb2_grpc.ReplicaServicer):
         try:
             fo = open(path, "r")
             content = fo.read(MAX_LENGTH)
-        except FileNotFoundError:
+        except (FileNotFoundError, IsADirectoryError):
             return pbb_pb2.ReadResponse(
                 status=pbb_pb2.Status.ERROR,
                 message="READ FAILURE: File already deleted",
