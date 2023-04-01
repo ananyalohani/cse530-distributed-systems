@@ -78,7 +78,7 @@ class ReplicaServicer(pbb_pb2_grpc.ReplicaServicer):
                 status=pbb_pb2.Status.ERROR,
                 message="WRITE FAILURE: File with the same name already exists.",
             )
-        if request.uuid in self.datastore and request.filename in files:
+        if request.uuid in self.datastore and request.filename not in files:
             return pbb_pb2.WriteResponse(
                 status=pbb_pb2.Status.ERROR,
                 message="WRITE FAILURE: Deleted file cannot be updated.",
@@ -87,6 +87,7 @@ class ReplicaServicer(pbb_pb2_grpc.ReplicaServicer):
         path = os.path.join(path, request.filename)
         fo = open(path, "w")
         fo.write(request.content)
+        fo.close()
         return pbb_pb2.WriteResponse(
             status=pbb_pb2.Status.OK,
             message="WRITE SUCCESS",
