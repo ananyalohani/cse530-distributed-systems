@@ -1,58 +1,32 @@
-import registry
-import server
-import client
+import subprocess
+import sys
+import os
+import json
+import shutil
 
-import time
-import uuid
+
+def cleanup():
+    pattern = "replica_"
+    dir = os.getcwd() + "/data"
+    for f in os.listdir(dir):
+        if f.startswith(pattern):
+            shutil.rmtree(os.path.join(dir, f))
+
 
 if __name__ == "__main__":
-    # TODO: a Run registry
-
-    # TODO: b Run N replicas
-
-    # c
-    cl = client.Client()
-
-    # d
-    replicas = cl.get_replica_list()
-    file_uuid1 = uuid.uuid4()
-    cl.write(
-        filename="sample.txt",
-        content="Hello, world",
-        file_uuid=file_uuid1,
-    )
-    time.sleep(2)
-
-    # e
-    for rp in replicas:
-        cl.read(
-            file_uuid=file_uuid1,
-            replica=rp
-        )
-
-    # f
-    file_uuid2 = uuid.uuid4()
-    cl.write(
-        filename="test.txt",
-        content="Bye, world",
-        file_uuid=file_uuid2,
-    )
-    time.sleep(2)
-
-    # g
-    for rp in replicas:
-        cl.read(
-            file_uuid=file_uuid2,
-            replica=rp
-        )
-
-    # h
-    cl.delete(file_uuid=file_uuid1, replica=replicas[0])
-    time.sleep(2)
-
-    # i
-    for rp in replicas:
-        cl.read(
-            file_uuid=file_uuid1,
-            replica=rp
-        )
+    N = sys.argv[1] if len(sys.argv) > 1 else 3
+    cwd = os.getcwd()
+    commands = ["python registry.py"] + \
+        ["python server.py"] * int(N) + ["python client.py"]
+    config = {
+        'tabs': [
+            {
+                'cd': cwd,
+                'commands': [commands],
+            }
+        ]
+    }
+    with open(f'{cwd}/.iterm-workspace', 'w') as f:
+        f.write(json.dumps(config))
+    cleanup()
+    subprocess.check_call(['iterm-workspace'], cwd=cwd)
