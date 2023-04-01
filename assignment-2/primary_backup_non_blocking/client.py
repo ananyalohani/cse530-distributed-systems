@@ -1,6 +1,5 @@
 import uuid
 import random
-import asyncio
 
 import pbn_pb2
 import pbn_pb2_grpc
@@ -28,11 +27,11 @@ class Client:
             print(f"    Content: {response.content or 'None'}")
             print(f"    Version: {response.version or 'None'}\n")
 
-    async def write(self, filename, content, file_uuid, replica=None):
+    def write(self, filename, content, file_uuid, replica=None):
         rp = replica or self.get_replica_for_request()
         with grpc.insecure_channel(rp) as channel:
             stub = pbn_pb2_grpc.ReplicaStub(channel)
-            response = await stub.Write(
+            response = stub.Write(
                 pbn_pb2.WriteRequest(
                     filename=filename,
                     content=content,

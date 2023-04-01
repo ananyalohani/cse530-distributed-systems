@@ -1,7 +1,6 @@
 import registry
 import server
 import client
-import asyncio
 
 import time
 import uuid
@@ -17,12 +16,12 @@ if __name__ == "__main__":
     # d
     replicas = cl.get_replica_list()
     file_uuid1 = uuid.uuid4()
-    asyncio.run(cl.write(
+    cl.write(
         filename="sample.txt",
         content="Hello, world",
         file_uuid=file_uuid1,
-    ), debug=True)
-    time.sleep(5)
+    )
+    time.sleep(2)
 
     # e
     for rp in replicas:
@@ -33,12 +32,12 @@ if __name__ == "__main__":
 
     # f
     file_uuid2 = uuid.uuid4()
-    asyncio.run(cl.write(
+    cl.write(
         filename="test.txt",
         content="Bye, world",
         file_uuid=file_uuid2,
-    ), debug=True)
-    time.sleep(5)
+    )
+    time.sleep(2)
 
     # g
     for rp in replicas:
@@ -47,13 +46,13 @@ if __name__ == "__main__":
             replica=rp
         )
 
-    # # h
-    # cl.delete(file_uuid=file_uuid1, replica=replicas[0])
-    # time.sleep(2)
+    # h
+    cl.delete(file_uuid=file_uuid1, replica=replicas[0])
+    time.sleep(2)
 
-    # # i
-    # for rp in replicas:
-    #     cl.read(
-    #         file_uuid=file_uuid1,
-    #         replica=rp
-    #     )
+    # i
+    for rp in replicas:
+        cl.read(
+            file_uuid=file_uuid1,
+            replica=rp
+        )

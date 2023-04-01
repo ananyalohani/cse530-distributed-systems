@@ -1,7 +1,7 @@
 import socket
+import threading
 from concurrent import futures
 from urllib.parse import unquote
-import asyncio
 import time
 import os
 
@@ -10,8 +10,6 @@ import pbn_pb2_grpc
 import grpc
 
 MAX_LENGTH = 1000
-
-# ! TODO: TEST THE CODE!
 
 
 class ReplicaServicer(pbn_pb2_grpc.ReplicaServicer):
@@ -97,35 +95,35 @@ class ReplicaServicer(pbn_pb2_grpc.ReplicaServicer):
             uuid=request.uuid
         )
 
-    async def send_write_request_to_backups(self, request):
+    def send_write_request_to_backups(self, request):
         replica_list = list(
             filter(lambda x: x != self.address, self.replica_list))
         response = None
         for rp in replica_list:
             with grpc.insecure_channel(rp) as channel:
                 stub = pbn_pb2_grpc.ReplicaStub(channel)
-                response = await stub.Write(request)
+                response = stub.Write(request)
                 response.message = f"REPLICA {response.message}"
                 if response.status == pbn_pb2.Status.ERROR:
                     return response
         return response
 
-    async def Write(self, request, context):
+    def Write(self, request, context):
         print(
             f"[.] Write request received from client {request.from_address}")
         if self.is_primary:
-            task = asyncio.create_task(
-                self.send_write_request_to_backups(pbn_pb2.WriteRequest(
+            request.timestamp = int(time.time())
+            thread = threading.Thread(target=self.send_write_request_to_backups, args=(
+                pbn_pb2.WriteRequest(
                     filename=request.filename,
                     content=request.content,
                     uuid=request.uuid,
                     from_address=self.address,
                     timestamp=request.timestamp
-                ))
-            )
-            request.timestamp = int(time.time())
+                ),
+            ))
             primary_response = self.write_to_replica(request)
-            await task
+            thread.start()
             return primary_response
         else:
             if request.from_address == self.primary:
@@ -133,7 +131,7 @@ class ReplicaServicer(pbn_pb2_grpc.ReplicaServicer):
             else:
                 with grpc.insecure_channel(self.primary) as channel:
                     stub = pbn_pb2_grpc.ReplicaStub(channel)
-                    response = await stub.Write(
+                    response = stub.Write(
                         pbn_pb2.WriteRequest(
                             filename=request.filename,
                             content=request.content,
@@ -164,39 +162,47 @@ class ReplicaServicer(pbn_pb2_grpc.ReplicaServicer):
             message="DELETE SUCCESS"
         )
 
+    def send_delete_request_to_backups(self, request):
+        replica_list = list(
+            filter(lambda x: x != self.address, self.replica_list))
+        response = None
+        for rp in replica_list:
+            with grpc.insecure_channel(rp) as channel:
+                stub = pbn_pb2_grpc.ReplicaStub(channel)
+                response = stub.Delete(request)
+                response.message = f"REPLICA {response.message}"
+                if response.status == pbn_pb2.Status.ERROR:
+                    return response
+        return response
+
     def Delete(self, request, context):
         print(
             f"[.] Delete request received from client {request.from_address}")
         if self.is_primary:
-            timestamp = int(time.time())
-            replica_list = list(
-                filter(lambda x: x != self.address, self.replica_list))
+            request.timestamp = int(time.time())
+            thread = threading.Thread(target=self.send_delete_request_to_backups, args=(
+                pbn_pb2.DeleteRequest(
+                    uuid=request.uuid,
+                    from_address=self.address,
+                    timestamp=request.timestamp
+                ),
+            ))
             primary_response = self.delete_from_replica(request)
-            if primary_response.status == pbn_pb2.Status.ERROR:
-                return primary_response
-            for rp in replica_list:
-                with grpc.insecure_channel(rp) as channel:
+            thread.start()
+            return primary_response
+        else:
+            if request.from_address == self.primary:
+                return self.delete_from_replica(request)
+            else:
+                with grpc.insecure_channel(self.primary) as channel:
                     stub = pbn_pb2_grpc.ReplicaStub(channel)
                     response = stub.Delete(
                         pbn_pb2.DeleteRequest(
                             uuid=request.uuid,
                             from_address=self.address,
-                            timestamp=timestamp
                         )
                     )
                     return response
-            return primary_response
-        elif not self.is_primary and request.from_address != self.primary:
-            with grpc.insecure_channel(self.primary) as channel:
-                stub = pbn_pb2_grpc.ReplicaStub(channel)
-                response = stub.Delete(
-                    pbn_pb2.DeleteRequest(
-                        uuid=request.uuid,
-                        from_address=self.address,
-                    )
-                )
-                return response
-        return self.delete_from_replica(request)
 
     def InformPrimary(self, request, context):
         print(
@@ -210,12 +216,12 @@ class ReplicaServicer(pbn_pb2_grpc.ReplicaServicer):
         )
 
 
-async def serve():
+def serve():
     port = 0
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind(("", 0))
         port = s.getsockname()[1]
-    server = grpc.aio.server(futures.ThreadPoolExecutor(max_workers=10))
+    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
     server_address = f"[::]:{port}"
     pbn_pb2_grpc.add_ReplicaServicer_to_server(
         ReplicaServicer(
@@ -224,10 +230,10 @@ async def serve():
         server
     )
     server.add_insecure_port(server_address)
-    await server.start()
+    server.start()
     print(f"[.] Server node started on {server_address}")
-    await server.wait_for_termination()
+    server.wait_for_termination()
 
 
 if __name__ == "__main__":
-    asyncio.run(serve(), debug=True)
+    serve()
