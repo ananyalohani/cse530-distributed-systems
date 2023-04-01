@@ -17,11 +17,7 @@ class Client:
         rp = replica or self.get_replica_for_request()
         with grpc.insecure_channel(rp) as channel:
             stub = pbb_pb2_grpc.ReplicaStub(channel)
-            response = stub.Read(
-                pbb_pb2.ReadRequest(
-                    uuid=str(file_uuid)
-                )
-            )
+            response = stub.Read(pbb_pb2.ReadRequest(uuid=str(file_uuid)))
             print(f"[.] Status message: {response.message}")
             print(f"    File: {response.filename or 'None'}")
             print(f"    Content: {response.content or 'None'}")
@@ -36,7 +32,6 @@ class Client:
                     filename=filename,
                     content=content,
                     uuid=str(file_uuid),
-                    from_address=self.client_id,
                 )
             )
             print(f"[.] Status message: {response.message}")
@@ -47,11 +42,7 @@ class Client:
         rp = replica or self.get_replica_for_request()
         with grpc.insecure_channel(rp) as channel:
             stub = pbb_pb2_grpc.ReplicaStub(channel)
-            response = stub.Delete(
-                pbb_pb2.DeleteRequest(
-                    uuid=str(file_uuid)
-                )
-            )
+            response = stub.Delete(pbb_pb2.DeleteRequest(uuid=str(file_uuid)))
             print(f"[.] Status message: {response.message}")
             print(f"    UUID: {file_uuid}\n")
 
@@ -64,10 +55,7 @@ class Client:
         with grpc.insecure_channel(self.REGISTRY_ADDRESS) as channel:
             stub = pbb_pb2_grpc.RegistryStub(channel)
             response = stub.GetReplicaList(
-                pbb_pb2.GetReplicaListRequest(
-                    name=str(self.client_id),
-                    address=None
-                )
+                pbb_pb2.GetReplicaListRequest(name=str(self.client_id), address=None)
             )
             self.replica_list = response.replicas
             return self.replica_list

@@ -44,7 +44,6 @@ message WriteRequest {
     string filename = 1;
     string content = 2;
     string uuid = 3;
-    string from_address = 4;
     int64 timestamp = 5;
 }
 
@@ -69,7 +68,6 @@ message ReadResponse {
 
 message DeleteRequest {
     string uuid = 1;
-    string from_address = 2;
     int64 timestamp = 3;
 }
 

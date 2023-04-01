@@ -33,6 +33,7 @@ message InformPrimaryRequest {
 message GetReplicaListRequest {
     string name = 1;
     string address = 2;
+    optional int32 quorum_size = 3;
 }
 
 message GetReplicaListResponse {
@@ -44,7 +45,7 @@ message WriteRequest {
     string filename = 1;
     string content = 2;
     string uuid = 3;
-    optional int64 timestamp = 5;
+    int64 timestamp = 5;
 }
 
 message WriteResponse {
