@@ -1,8 +1,6 @@
 import socket
-from urllib.parse import unquote
 from concurrent import futures
 import os
-import shutil
 
 import pbb_pb2
 import pbb_pb2_grpc
@@ -55,14 +53,6 @@ class RegistryServicer(pbb_pb2_grpc.RegistryServicer):
         return pbb_pb2.GetReplicaListResponse(replicas=self.replica_list)
 
 
-def cleanup():
-    pattern = "replica_"
-    dir = os.getcwd() + "/data"
-    for f in os.listdir(dir):
-        if f.startswith(pattern):
-            shutil.rmtree(os.path.join(dir, f))
-
-
 def serve():
     PORT = 5555
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -77,5 +67,4 @@ def serve():
 
 
 if __name__ == "__main__":
-    cleanup()
     serve()

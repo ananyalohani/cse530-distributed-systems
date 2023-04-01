@@ -71,3 +71,49 @@ class Client:
             )
             self.replica_list = response.replicas
             return self.replica_list
+
+
+if __name__ == "__main__":
+    # c
+    cl = Client()
+
+    # d
+    replicas = cl.get_replica_list()
+    file_uuid1 = uuid.uuid4()
+    cl.write(
+        filename="sample.txt",
+        content="Hello, world",
+        file_uuid=file_uuid1,
+    )
+
+    # e
+    for rp in replicas:
+        cl.read(
+            file_uuid=file_uuid1,
+            replica=rp
+        )
+
+    # f
+    file_uuid2 = uuid.uuid4()
+    cl.write(
+        filename="test.txt",
+        content="Bye, world",
+        file_uuid=file_uuid2,
+    )
+
+    # g
+    for rp in replicas:
+        cl.read(
+            file_uuid=file_uuid2,
+            replica=rp
+        )
+
+    # h
+    cl.delete(file_uuid=file_uuid1, replica=replicas[0])
+
+    # i
+    for rp in replicas:
+        cl.read(
+            file_uuid=file_uuid1,
+            replica=rp
+        )

@@ -45,7 +45,7 @@ class ReplicaServicer(pbn_pb2_grpc.ReplicaServicer):
             print(f"[.] {response.message}")
 
     def Read(self, request, context):
-        from_address = request.from_address or unquote(context.peer())
+        from_address = request.from_address
         print(
             f"[.] READ request received from {from_address}")
         if request.uuid not in self.datastore:
@@ -111,7 +111,7 @@ class ReplicaServicer(pbn_pb2_grpc.ReplicaServicer):
         return response
 
     def Write(self, request, context):
-        from_address = request.from_address or unquote(context.peer())
+        from_address = request.from_address
         print(f"[.] WRITE request received from {from_address}")
         if self.is_primary:
             request.version = int(time.time())
@@ -179,7 +179,7 @@ class ReplicaServicer(pbn_pb2_grpc.ReplicaServicer):
         return response
 
     def Delete(self, request, context):
-        from_address = request.from_address or unquote(context.peer())
+        from_address = request.from_address
         print(f"[.] DELETE request received from {from_address}")
         if self.is_primary:
             request.version = int(time.time())
