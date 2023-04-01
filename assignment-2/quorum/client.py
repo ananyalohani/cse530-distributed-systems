@@ -1,71 +1,97 @@
-import socket
-from urllib.parse import unquote
-from concurrent import futures
-import os
+import uuid
+import random
 
 import pbb_pb2
 import pbb_pb2_grpc
 import grpc
 
 
-class RegistryServicer(pbb_pb2_grpc.RegistryServicer):
-    replica_list = []
-    primary = None
+class Client:
+    REGISTRY_ADDRESS = "[::]:56149"
+    replica_list = None
 
-    def Register(self, request, context):
-        address = request.address
-        print(f"[.] REGISTER REQUEST FROM {address}")
-        if any(r_address == address for r_address in self.replica_list):
-            return pbb_pb2.RegisterResponse(
-                status=pbb_pb2.Status.ERROR,
-                message=f"Server {address} already registered.",
-            )
-        self.replica_list.append(address)
-        replica_id = len(self.replica_list)
-        path = os.path.join(os.getcwd(), f"data/replica_{replica_id}")
-        if not os.path.exists(path):
-            os.mkdir(path)
-        if not self.primary:
-            self.primary = address
-            return pbb_pb2.RegisterResponse(
-                status=pbb_pb2.Status.OK,
-                message=f"Server {address} registered as primary.",
-                primary_address=address,
-                replica_id=replica_id,
-            )
-        if address != self.primary:
-            with grpc.insecure_channel(self.primary) as channel:
+    def __init__(self):
+        self.client_id = str(uuid.uuid4())
+
+    def check_valid_response(self, response, final_response):
+        is_valid = response.status == pbb_pb2.Status.OK and not final_response
+        if not is_valid:
+            try:
+                is_valid = (
+                    response.version and response.version > final_response.version
+                )
+            except AttributeError:
+                pass
+        return is_valid
+
+    def read(self, file_uuid):
+        replicas = self.get_replica_list("READ")
+        responses = []
+        for rp in replicas:
+            with grpc.insecure_channel(rp) as channel:
                 stub = pbb_pb2_grpc.ReplicaStub(channel)
-                response = stub.InformPrimary(
-                    pbb_pb2.InformPrimaryRequest(
-                        replica_address=address,
+                response = stub.Read(pbb_pb2.ReadRequest(uuid=str(file_uuid)))
+                responses.append(response)
+        final_response = None
+        for response in responses:
+            if self.check_valid_response(response, final_response):
+                final_response = response
+        if final_response is None or final_response.status == pbb_pb2.Status.ERROR:
+            print("[.] Status message: READ FAILURE")
+            return
+        print(f"[.] Status message: {final_response.message}")
+        print(f"    File: {final_response.filename or 'None'}")
+        print(f"    Content: {final_response.content or 'None'}")
+        print(f"    Version: {final_response.version or 'None'}\n")
+
+    def write(self, filename, content, file_uuid):
+        replicas = self.get_replica_list("WRITE")
+        responses = []
+        for rp in replicas:
+            with grpc.insecure_channel(rp) as channel:
+                stub = pbb_pb2_grpc.ReplicaStub(channel)
+                response = stub.Write(
+                    pbb_pb2.WriteRequest(
+                        filename=filename,
+                        content=content,
+                        uuid=str(file_uuid),
                     )
                 )
-                print(f"[.] {response.message}")
-        return pbb_pb2.RegisterResponse(
-            status=pbb_pb2.Status.OK,
-            message=f"Server {address} registered.",
-            primary_address=self.primary,
-            replica_id=replica_id,
-        )
+                responses.append(response)
+        final_response = None
+        for response in responses:
+            if self.check_valid_response(response, final_response):
+                final_response = response
+        if final_response is None:
+            print("[.] Status message: WRITE FAILURE")
+            return
+        print(f"[.] Status message: {final_response.message}")
+        print(f"    UUID: {final_response.uuid or 'None'}")
+        print(f"    Version: {final_response.version or 'None'}\n")
 
-    def GetReplicaList(self, request, context):
-        print(f"[.] REPLICA LIST REQUEST FROM CLIENT {request.name}")
-        return pbb_pb2.GetReplicaListResponse(replicas=self.replica_list)
+    def delete(self, file_uuid):
+        replicas = self.get_replica_list("WRITE")
+        responses = []
+        for rp in replicas:
+            with grpc.insecure_channel(rp) as channel:
+                stub = pbb_pb2_grpc.ReplicaStub(channel)
+                response = stub.Delete(pbb_pb2.DeleteRequest(uuid=str(file_uuid)))
+                responses.append(response)
+        final_response = None
+        for response in responses:
+            if self.check_valid_response(response, final_response):
+                final_response = response
+        if final_response is None:
+            print("[.] Status message: DELETE FAILURE")
+            return
+        print(f"[.] Status message: {final_response.message}")
+        print(f"    UUID: {file_uuid}\n")
 
-
-def serve():
-    PORT = 56149
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.bind(("", PORT))
-    registry_address = f"[::]:{PORT}"
-    registry = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
-    pbb_pb2_grpc.add_RegistryServicer_to_server(RegistryServicer(), registry)
-    registry.add_insecure_port(registry_address)
-    registry.start()
-    print(f"[.] Registry node started on {registry_address}")
-    registry.wait_for_termination()
-
-
-if __name__ == "__main__":
-    serve()
+    def get_replica_list(self, purpose="ALL"):
+        with grpc.insecure_channel(self.REGISTRY_ADDRESS) as channel:
+            stub = pbb_pb2_grpc.RegistryStub(channel)
+            response = stub.GetReplicaList(
+                pbb_pb2.GetReplicaListRequest(name=self.client_id, purpose=purpose)
+            )
+            self.replica_list = response.replicas
+            return self.replica_list
