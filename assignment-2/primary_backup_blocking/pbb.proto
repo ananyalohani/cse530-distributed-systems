@@ -44,7 +44,8 @@ message WriteRequest {
     string filename = 1;
     string content = 2;
     string uuid = 3;
-    optional int64 timestamp = 5;
+    optional int64 version = 4;
+    optional string from_address = 5;
 }
 
 message WriteResponse {
@@ -56,6 +57,7 @@ message WriteResponse {
 
 message ReadRequest {
     string uuid = 1;
+    optional string from_address = 2;
 }
 
 message ReadResponse {
@@ -68,7 +70,8 @@ message ReadResponse {
 
 message DeleteRequest {
     string uuid = 1;
-    int64 timestamp = 3;
+    int64 version = 2;
+    optional string from_address = 3;
 }
 
 service Registry {
