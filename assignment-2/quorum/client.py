@@ -59,9 +59,15 @@ class Client:
                 )
                 responses.append(response)
         final_response = None
+        error_response = None
         for response in responses:
             if self.check_valid_response(response, final_response):
                 final_response = response
+                if response.status == pbb_pb2.Status.ERROR:
+                    error_response = response
+        if error_response is not None:
+            print(f"[.] Status message: {error_response.message}")
+            return
         if final_response is None:
             print("[.] Status message: WRITE FAILURE")
             return
