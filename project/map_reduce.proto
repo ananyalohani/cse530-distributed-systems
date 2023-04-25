@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package map_reduce;
+
+message MapRequest {
+    string filepath = 1;
+    repeated string reducers = 2;
+}
+
+message MapResponse {
+    repeated string reducers = 1;
+    repeated Struct word_count = 2;
+}
+
+service Mapper {
+    rpc Map (MapRequest) returns (MapResponse) {}
+}
+
+service Reducer {
+    rpc Reduce (ReduceRequest) returns (ReduceResponse) {}
+}
