@@ -1,34 +1,35 @@
 from typing import List
 import socket
 from concurrent import futures
-from google.protobuf.struct_pb2 import Struct
 
 import grpc
+import map_reduce_pb2_grpc
 
-PORT = 50051
 
-
-class Mapper():
+class Mapper(map_reduce_pb2_grpc.MapperServicer):
+    id: int = 0
+    address: str = ""
     filepaths: List[str] = []
     reducers: List[str] = []
-    datastore: List[Struct] = []
+    datastore: dict = {}
 
-    def __init__(self, filepaths: List[str] = [], reducers: List[str] = []):
+    def __init__(self, id: int, filepaths: List[str] = [],
+                 reducers: List[str] = []):
+        self.id = id
         self.filepaths = filepaths
         self.reducers = reducers
-        pass
 
-    def serve(self):
+    def serve(self, port):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.bind(("", PORT))
+            s.bind(("", port))
         self.server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
-        self.address = f"[::]:{PORT}"
-        # pkda_pb2_grpc.add_PKDAServicer_to_server(self, self.server)
+        self.address = f"[::]:{port}"
+        map_reduce_pb2_grpc.add_MapperServicer_to_server(self, self.server)
         self.server.add_insecure_port(self.address)
         self.server.start()
-        print(f"[.] PKDA node started on {self.address}")
+        print(f"[.] Mapper {self.id} node started on {self.address}")
 
-    def map(self):
+    def Map(self, request, context):
         pass
 
     def shuffle(self):
