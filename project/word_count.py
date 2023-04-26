@@ -1,24 +1,16 @@
-from multiprocessing import Process
-import multiprocessing
-from typing import List
+import json
 import os
 import time
-import json
-import socket
-from contextlib import closing
 from collections import defaultdict
 
-from mapper import Mapper
-from reducer import Reducer
-
 import grpc
-import map_reduce_pb2_grpc
 import map_reduce_pb2
+import map_reduce_pb2_grpc
+from map_reduce import Mapper, Reducer, Manager
 
 
 class WordCountMapper(Mapper):
     def Map(self, request, context):
-        lines = []
         self.datastore = defaultdict(int)
         for filepath in self.filepaths:
             with open(filepath, "r") as input_file:
@@ -71,75 +63,18 @@ class WordCountReducer(Reducer):
         )
 
 
-class WordCountManager():
-    datastore = {}
-
-    def __init__(self, config_path: str, input_paths: List[str]):
-        with open(config_path, "r") as f:
-            lines = f.readlines()
-        self.num_mappers = int(lines[0].split(" = ")[1])
-        self.num_reducers = int(lines[1].split(" = ")[1])
-        files_per_mapper = 0
-        if self.num_mappers < len(input_paths):
-            files_per_mapper = len(input_paths) // self.num_mappers
-        else:
-            files_per_mapper = 1
-
-        if os.uname().sysname == "Darwin":
-            multiprocessing.set_start_method('spawn')
-
-        self.mappers = []
-        self.mapper_processes = []
-        self.mapper_addresses = []
+class WordCountManager(Manager):
+    def initialize_map_reduce(self):
         for i in range(self.num_mappers):
-            idx = (i + 1) * files_per_mapper if (i + 1) * \
-                files_per_mapper < len(input_paths) else len(input_paths)
+            idx = (i + 1) * self.files_per_mapper if (i + 1) * \
+                self.files_per_mapper < len(self.input_paths) else len(self.input_paths)
             mapper = WordCountMapper(
-                i + 1, input_paths[i * files_per_mapper:idx])
+                i + 1, self.input_paths[i * self.files_per_mapper:idx])
             self.mappers.append(mapper)
 
-        self.reducers = []
-        self.reducer_processes = []
-        self.reducer_addresses = []
         for i in range(self.num_reducers):
             reducer = WordCountReducer(i + 1)
             self.reducers.append(reducer)
-
-    def find_free_port(self):
-        with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as s:
-            s.bind(('', 0))
-            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            return s.getsockname()[1]
-
-    def start_process(self, obj, idx, port):
-        if obj == 'mapper':
-            p = Process(target=self.start_mapper, args=(idx, port))
-            p.start()
-        elif obj == 'reducer':
-            p = Process(target=self.start_reducer, args=(idx, port))
-            p.start()
-
-        return p
-
-    def start_mapper(self, idx, port):
-        self.mappers[idx].serve(port)
-        self.mappers[idx].server.wait_for_termination()
-
-    def start_reducer(self, idx, port):
-        self.reducers[idx].serve(port)
-        self.reducers[idx].server.wait_for_termination()
-
-    def run(self):
-        for i in range(len(self.mappers)):
-            if (not len(self.mappers[i].filepaths)):
-                continue
-            with grpc.insecure_channel(self.mapper_addresses[i]) as channel:
-                stub = map_reduce_pb2_grpc.MapperStub(channel)
-                stub.Map(
-                    map_reduce_pb2.MapRequest(
-                        reducers=self.reducer_addresses,
-                    )
-                )
 
 
 if __name__ == "__main__":

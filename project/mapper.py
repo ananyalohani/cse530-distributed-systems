@@ -1,6 +1,6 @@
-from typing import List
 import socket
 from concurrent import futures
+from typing import List
 
 import grpc
 import map_reduce_pb2_grpc
@@ -30,6 +30,9 @@ class Mapper(map_reduce_pb2_grpc.MapperServicer):
         print(f"[.] Mapper {self.id} node started on {self.address}")
 
     def Map(self, request, context):
+        pass
+
+    def sort(self):
         pass
 
     def shuffle(self):

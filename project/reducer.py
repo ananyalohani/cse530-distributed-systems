@@ -1,7 +1,7 @@
-from typing import List
 import socket
-from concurrent import futures
 from collections import defaultdict
+from concurrent import futures
+from typing import List
 
 import grpc
 import map_reduce_pb2_grpc
