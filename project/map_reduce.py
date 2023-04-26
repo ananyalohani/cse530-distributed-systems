@@ -1,3 +1,4 @@
+import json
 import multiprocessing
 import os
 import socket
@@ -5,7 +6,6 @@ from collections import defaultdict
 from concurrent import futures
 from contextlib import closing
 from typing import List
-import json
 
 import grpc
 import map_reduce_pb2
@@ -40,7 +40,6 @@ class Mapper(map_reduce_pb2_grpc.MapperServicer):
 
     def create_shards(self, num_reducers: int):
         pass
-
 
 
 class Reducer(map_reduce_pb2_grpc.ReducerServicer):

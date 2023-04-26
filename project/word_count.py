@@ -4,7 +4,7 @@ import time
 from collections import defaultdict
 
 import map_reduce_pb2
-from map_reduce import Mapper, Reducer, Manager
+from map_reduce import Manager, Mapper, Reducer
 
 
 class WordCountMapper(Mapper):
