@@ -3,9 +3,7 @@ import os
 import time
 from collections import defaultdict
 
-import grpc
 import map_reduce_pb2
-import map_reduce_pb2_grpc
 from map_reduce import Mapper, Reducer, Manager
 
 
@@ -18,21 +16,8 @@ class WordCountMapper(Mapper):
                     for word in line.strip().split():
                         word = word.lower()
                         self.datastore[word] += 1
-        responses = []
-        shards = self.sort(len(request.reducers))
-        for i, reducer in enumerate(request.reducers):
-            response = None
-            with grpc.insecure_channel(reducer) as channel:
-                stub = map_reduce_pb2_grpc.ReducerStub(channel)
-                response = stub.Reduce(
-                    map_reduce_pb2.ReduceRequest(
-                        mapper=self.address,
-                        datastore=json.dumps(shards[i])
-                    )
-                )
-                responses.append(json.loads(response.datastore))
-        final_store = self.shuffle(responses)
-        return map_reduce_pb2.MapResponse(datastore=json.dumps(final_store), reducers=self.reducers)
+        shards = self.sort(request.num_reducers)
+        return map_reduce_pb2.MapResponse(shards=json.dumps(shards))
 
     def sort(self, num_reducers: int):
         shards = [defaultdict(int) for _ in range(num_reducers)]
@@ -41,25 +26,19 @@ class WordCountMapper(Mapper):
             shards[shard_index][word] += count
         return shards
 
-    def shuffle(self, responses):
-        final_store = defaultdict(int)
-        for response in responses:
-            for key, value in response.items():
-                final_store[key] += value
-        return final_store
-
 
 class WordCountReducer(Reducer):
     def Reduce(self, request, context):
-        datastore = json.loads(request.datastore)
-        for word, count in datastore.items():
-            self.datastore[word] += count
+        shards = json.loads(request.shards)
+        for datastore in shards:
+            datastore = defaultdict(int, datastore)
+            for word, count in datastore.items():
+                self.datastore[word] += count
         with open(os.path.join(os.path.dirname(__file__), f"sample/word_count/wc_output{self.id}.txt"), "w") as f:
             for key, value in self.datastore.items():
                 f.write(f"{key} {value}\n")
         return map_reduce_pb2.ReduceResponse(
             datastore=json.dumps(self.datastore),
-            reducer=self.address
         )
 
 
@@ -75,6 +54,11 @@ class WordCountManager(Manager):
         for i in range(self.num_reducers):
             reducer = WordCountReducer(i + 1)
             self.reducers.append(reducer)
+
+    def local_reduce(self, datastore):
+        store = defaultdict(int, datastore)
+        for key, value in store.items():
+            self.datastore[key] += value
 
 
 if __name__ == "__main__":

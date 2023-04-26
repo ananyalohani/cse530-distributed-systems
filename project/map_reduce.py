@@ -5,6 +5,7 @@ from collections import defaultdict
 from concurrent import futures
 from contextlib import closing
 from typing import List
+import json
 
 import grpc
 import map_reduce_pb2
@@ -68,6 +69,8 @@ class Reducer(map_reduce_pb2_grpc.ReducerServicer):
 
 
 class Manager():
+    datastore = defaultdict(int)
+
     def __init__(self, config_path: str, input_paths: List[str]):
         with open(config_path, "r") as f:
             lines = f.readlines()
@@ -122,13 +125,29 @@ class Manager():
         self.reducers[idx].server.wait_for_termination()
 
     def run(self):
+        shards = [[] for _ in range(len(self.reducers))]
         for i in range(len(self.mappers)):
             if (not len(self.mappers[i].filepaths)):
                 continue
             with grpc.insecure_channel(self.mapper_addresses[i]) as channel:
                 stub = map_reduce_pb2_grpc.MapperStub(channel)
-                stub.Map(
+                response = stub.Map(
                     map_reduce_pb2.MapRequest(
-                        reducers=self.reducer_addresses,
+                        num_reducers=len(self.reducers),
                     )
                 )
+                for i, item in enumerate(json.loads(response.shards)):
+                    shards[i % len(shards)].append(item)
+        for i in range(len(self.reducers)):
+            with grpc.insecure_channel(self.reducer_addresses[i]) as channel:
+                stub = map_reduce_pb2_grpc.ReducerStub(channel)
+                response = stub.Reduce(
+                    map_reduce_pb2.ReduceRequest(
+                        shards=json.dumps(shards[i]),
+                    )
+                )
+                self.local_reduce(json.loads(response.datastore))
+        print(self.datastore)
+
+    def local_reduce(self, datastore):
+        pass

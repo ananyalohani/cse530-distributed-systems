@@ -3,23 +3,19 @@ syntax = "proto3";
 package map_reduce;
 
 message MapRequest {
-    repeated string filepaths = 1;
-    repeated string reducers = 2;
+    int32 num_reducers = 2;
 }
 
 message MapResponse {
-    repeated string reducers = 1;
-    string datastore = 2;
+    string shards = 1;
 }
 
 message ReduceRequest {
-    string mapper = 1;
-    string datastore = 2;
+    string shards = 1;
 }
 
 message ReduceResponse {
-    string reducer = 1;
-    string datastore = 2;
+    string datastore = 1;
 }
 
 service Mapper {
