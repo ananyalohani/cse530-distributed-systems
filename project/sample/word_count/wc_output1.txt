@@ -1,10 +1,10 @@
 this 1
-apple 2
+is 6
+an 1
 color 1
-not 2
-some 2
+greatness 3
 are 1
 born 1
-great 1
-others 1
-upon 1
+achieve 1
+and 1
+thrust 1

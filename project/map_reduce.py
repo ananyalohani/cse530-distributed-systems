@@ -38,11 +38,9 @@ class Mapper(map_reduce_pb2_grpc.MapperServicer):
     def Map(self, request, context):
         pass
 
-    def sort(self):
+    def create_shards(self, num_reducers: int):
         pass
 
-    def shuffle(self):
-        pass
 
 
 class Reducer(map_reduce_pb2_grpc.ReducerServicer):
@@ -71,7 +69,7 @@ class Reducer(map_reduce_pb2_grpc.ReducerServicer):
 class Manager():
     datastore = defaultdict(int)
 
-    def __init__(self, config_path: str, input_paths: List[str]):
+    def __init__(self, config_path: str, input_paths: List[str], MapperClass, ReducerClass):
         with open(config_path, "r") as f:
             lines = f.readlines()
         self.num_mappers = int(lines[0].split(" = ")[1])
@@ -93,10 +91,16 @@ class Manager():
         self.reducers = []
         self.reducer_processes = []
         self.reducer_addresses = []
-        self.initialize_map_reduce()
+        for i in range(self.num_mappers):
+            idx = (i + 1) * self.files_per_mapper if (i + 1) * \
+                self.files_per_mapper < len(self.input_paths) else len(self.input_paths)
+            mapper = MapperClass(
+                i + 1, self.input_paths[i * self.files_per_mapper:idx])
+            self.mappers.append(mapper)
 
-    def initialize_map_reduce(self):
-        pass
+        for i in range(self.num_reducers):
+            reducer = ReducerClass(i + 1)
+            self.reducers.append(reducer)
 
     def find_free_port(self):
         with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as s:

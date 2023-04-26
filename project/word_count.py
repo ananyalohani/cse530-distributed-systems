@@ -16,10 +16,10 @@ class WordCountMapper(Mapper):
                     for word in line.strip().split():
                         word = word.lower()
                         self.datastore[word] += 1
-        shards = self.sort(request.num_reducers)
+        shards = self.create_shards(request.num_reducers)
         return map_reduce_pb2.MapResponse(shards=json.dumps(shards))
 
-    def sort(self, num_reducers: int):
+    def create_shards(self, num_reducers: int):
         shards = [defaultdict(int) for _ in range(num_reducers)]
         for word, count in self.datastore.items():
             shard_index = abs(hash(word)) % num_reducers
@@ -43,18 +43,6 @@ class WordCountReducer(Reducer):
 
 
 class WordCountManager(Manager):
-    def initialize_map_reduce(self):
-        for i in range(self.num_mappers):
-            idx = (i + 1) * self.files_per_mapper if (i + 1) * \
-                self.files_per_mapper < len(self.input_paths) else len(self.input_paths)
-            mapper = WordCountMapper(
-                i + 1, self.input_paths[i * self.files_per_mapper:idx])
-            self.mappers.append(mapper)
-
-        for i in range(self.num_reducers):
-            reducer = WordCountReducer(i + 1)
-            self.reducers.append(reducer)
-
     def local_reduce(self, datastore):
         store = defaultdict(int, datastore)
         for key, value in store.items():
@@ -70,7 +58,8 @@ if __name__ == "__main__":
                           "sample/word_count/Input2.txt")
     input3 = os.path.join(os.path.dirname(__file__),
                           "sample/word_count/Input3.txt")
-    manager = WordCountManager(config, [input1, input2, input3])
+    manager = WordCountManager(
+        config, [input1, input2, input3], WordCountMapper, WordCountReducer)
     for i in range(len(manager.reducers)):
         port = manager.find_free_port()
         manager.start_process('reducer', i, port)
