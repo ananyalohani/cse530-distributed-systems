@@ -1,6 +1,7 @@
 from typing import List
 import socket
 from concurrent import futures
+from collections import defaultdict
 
 import grpc
 import map_reduce_pb2_grpc
@@ -8,7 +9,7 @@ import map_reduce_pb2_grpc
 
 class Reducer(map_reduce_pb2_grpc.ReducerServicer):
     id: int = 0
-    datastore: dict = {}
+    datastore: defaultdict = defaultdict(int)
     address: str = ""
     mappers: List[str] = []
 

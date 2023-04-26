@@ -1,6 +1,0 @@
-this 1
-is 2
-an 1
-apple 2
-red 1
-in 1

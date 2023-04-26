@@ -6,6 +6,7 @@ import time
 import json
 import socket
 from contextlib import closing
+from collections import defaultdict
 
 from mapper import Mapper
 from reducer import Reducer
@@ -18,15 +19,13 @@ import map_reduce_pb2
 class WordCountMapper(Mapper):
     def Map(self, request, context):
         lines = []
+        self.datastore = defaultdict(int)
         for filepath in self.filepaths:
-            with open(filepath, "r") as f:
-                lines.extend(line.rstrip() for line in f)
-        for line in lines:
-            line = line.lower().split(" ")
-            for word in line:
-                if word not in self.datastore:
-                    self.datastore[word] = 0
-                self.datastore[word] += 1
+            with open(filepath, "r") as input_file:
+                for line in input_file:
+                    for word in line.strip().split():
+                        word = word.lower()
+                        self.datastore[word] += 1
         responses = []
         shards = self.sort(len(request.reducers))
         for i, reducer in enumerate(request.reducers):
@@ -44,31 +43,28 @@ class WordCountMapper(Mapper):
         return map_reduce_pb2.MapResponse(datastore=json.dumps(final_store), reducers=self.reducers)
 
     def sort(self, num_reducers: int):
-        # Equally ivide the datastore into num_reducers parts
-        shard_size = max(1, len(self.datastore) // num_reducers)
-        shards = [dict(list(self.datastore.items())[i:i+shard_size])
-                  for i in range(0, len(self.datastore), shard_size)]
+        shards = [defaultdict(int) for _ in range(num_reducers)]
+        for word, count in self.datastore.items():
+            shard_index = abs(hash(word)) % num_reducers
+            shards[shard_index][word] += count
         return shards
 
     def shuffle(self, responses):
-        final_store = {}
+        final_store = defaultdict(int)
         for response in responses:
             for key, value in response.items():
-                if key not in final_store:
-                    final_store[key] = value
-                else:
-                    final_store[key] += value
+                final_store[key] += value
         return final_store
 
 
 class WordCountReducer(Reducer):
     def Reduce(self, request, context):
         datastore = json.loads(request.datastore)
-        for key, value in datastore.items():
-            if key not in self.datastore:
-                self.datastore[key] = value
-            else:
-                self.datastore[key] += value
+        for word, count in datastore.items():
+            self.datastore[word] += count
+        with open(os.path.join(os.path.dirname(__file__), f"sample/word_count/wc_output{self.id}.txt"), "w") as f:
+            for key, value in self.datastore.items():
+                f.write(f"{key} {value}\n")
         return map_reduce_pb2.ReduceResponse(
             datastore=json.dumps(self.datastore),
             reducer=self.address
@@ -134,32 +130,16 @@ class WordCountManager():
         self.reducers[idx].server.wait_for_termination()
 
     def run(self):
-        responses = []
         for i in range(len(self.mappers)):
             if (not len(self.mappers[i].filepaths)):
                 continue
             with grpc.insecure_channel(self.mapper_addresses[i]) as channel:
                 stub = map_reduce_pb2_grpc.MapperStub(channel)
-                response = stub.Map(
+                stub.Map(
                     map_reduce_pb2.MapRequest(
                         reducers=self.reducer_addresses,
                     )
                 )
-                responses.append(json.loads(response.datastore))
-        self.local_reduce(responses)
-        with open("sample/word_count/output.txt", "w") as f:
-            for key, value in self.datastore.items():
-                f.write(f"{key} {value}\n")
-        # print(self.datastore)
-
-    def local_reduce(self, responses):
-        for response in responses:
-            for key, value in response.items():
-                if key in self.datastore:
-                    self.datastore[key] += value
-                else:
-                    self.datastore[key] = value
-        return
 
 
 if __name__ == "__main__":
@@ -171,7 +151,7 @@ if __name__ == "__main__":
                           "sample/word_count/Input2.txt")
     input3 = os.path.join(os.path.dirname(__file__),
                           "sample/word_count/Input3.txt")
-    manager = WordCountManager(config, [input1])
+    manager = WordCountManager(config, [input1, input2, input3])
     for i in range(len(manager.reducers)):
         port = manager.find_free_port()
         manager.start_process('reducer', i, port)
