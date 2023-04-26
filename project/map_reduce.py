@@ -1,13 +1,13 @@
 import json
 import multiprocessing
 import os
-import time
 import socket
+import time
+from abc import ABC, abstractmethod
 from collections import defaultdict
 from concurrent import futures
 from contextlib import closing
 from typing import List
-from abc import ABC, abstractmethod
 
 import grpc
 import map_reduce_pb2
@@ -39,7 +39,7 @@ class Mapper(map_reduce_pb2_grpc.MapperServicer, ABC):
         self.reducers = reducers
 
     @abstractmethod
-    def Map(self, request, context):
+    def Map(self, request: map_reduce_pb2.MapRequest, context: grpc.ServicerContext):
         pass
 
     def serve(self, port):
@@ -62,7 +62,7 @@ class Reducer(map_reduce_pb2_grpc.ReducerServicer, ABC):
         self.id = id
 
     @abstractmethod
-    def Reduce(self, request, context):
+    def Reduce(self, request: map_reduce_pb2.ReduceRequest, context: grpc.ServicerContext):
         pass
 
     def serve(self, port):
