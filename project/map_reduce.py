@@ -7,6 +7,7 @@ from collections import defaultdict
 from concurrent import futures
 from contextlib import closing
 from typing import List
+from abc import ABC, abstractmethod
 
 import grpc
 import map_reduce_pb2
@@ -25,7 +26,7 @@ class Partitioner():
         return partition
 
 
-class Mapper(map_reduce_pb2_grpc.MapperServicer):
+class Mapper(map_reduce_pb2_grpc.MapperServicer, ABC):
     id: int = 0
     address: str = ""
     filepaths: List[str] = []
@@ -37,6 +38,7 @@ class Mapper(map_reduce_pb2_grpc.MapperServicer):
         self.filepaths = filepaths
         self.reducers = reducers
 
+    @abstractmethod
     def Map(self, request, context):
         pass
 
@@ -51,7 +53,7 @@ class Mapper(map_reduce_pb2_grpc.MapperServicer):
         print(f"[.] Mapper {self.id} node started on {self.address}")
 
 
-class Reducer(map_reduce_pb2_grpc.ReducerServicer):
+class Reducer(map_reduce_pb2_grpc.ReducerServicer, ABC):
     id: int = 0
     datastore: defaultdict = defaultdict(int)
     address: str = ""
@@ -59,6 +61,7 @@ class Reducer(map_reduce_pb2_grpc.ReducerServicer):
     def __init__(self, id: int):
         self.id = id
 
+    @abstractmethod
     def Reduce(self, request, context):
         pass
 
@@ -73,7 +76,7 @@ class Reducer(map_reduce_pb2_grpc.ReducerServicer):
         print(f"[.] Reducer {self.id} node started on {self.address}")
 
 
-class Manager():
+class Manager(ABC):
     datastore = defaultdict(int)
 
     def __init__(self, config_path: str, input_paths: List[str], MapperClass, ReducerClass):
@@ -136,7 +139,7 @@ class Manager():
         self.reducers[idx].serve(port)
         self.reducers[idx].server.wait_for_termination()
 
-    def add_shards(self, future):
+    def add_shards(self, future: grpc.Future):
         shards = json.loads(future.result().shards)
         for i, item in enumerate(shards):
             self.shards[i % len(shards)].append(item)
@@ -154,6 +157,7 @@ class Manager():
                 )
                 response.add_done_callback(self.add_shards)
                 time.sleep(0.01)
+
         for i in range(len(self.reducers)):
             with grpc.insecure_channel(self.reducer_addresses[i]) as channel:
                 stub = map_reduce_pb2_grpc.ReducerStub(channel)
@@ -166,5 +170,6 @@ class Manager():
                 time.sleep(0.01)
         print(self.datastore)
 
-    def local_reduce(self, datastore):
+    @abstractmethod
+    def local_reduce(self, future: grpc.Future):
         pass
