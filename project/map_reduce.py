@@ -1,6 +1,7 @@
 import json
 import multiprocessing
 import os
+import time
 import socket
 from collections import defaultdict
 from concurrent import futures
@@ -90,6 +91,7 @@ class Manager():
             multiprocessing.set_start_method('spawn')
 
         self.input_paths = input_paths
+        self.shards = [[] for _ in range(self.num_reducers)]
 
         self.mappers = []
         self.mapper_processes = []
@@ -134,29 +136,34 @@ class Manager():
         self.reducers[idx].serve(port)
         self.reducers[idx].server.wait_for_termination()
 
+    def add_shards(self, future):
+        shards = json.loads(future.result().shards)
+        for i, item in enumerate(shards):
+            self.shards[i % len(shards)].append(item)
+
     def run(self):
-        shards = [[] for _ in range(len(self.reducers))]
         for i in range(len(self.mappers)):
             if (not len(self.mappers[i].filepaths)):
                 continue
             with grpc.insecure_channel(self.mapper_addresses[i]) as channel:
                 stub = map_reduce_pb2_grpc.MapperStub(channel)
-                response = stub.Map(
+                response = stub.Map.future(
                     map_reduce_pb2.MapRequest(
                         num_reducers=len(self.reducers),
                     )
                 )
-                for i, item in enumerate(json.loads(response.shards)):
-                    shards[i % len(shards)].append(item)
+                response.add_done_callback(self.add_shards)
+                time.sleep(0.01)
         for i in range(len(self.reducers)):
             with grpc.insecure_channel(self.reducer_addresses[i]) as channel:
                 stub = map_reduce_pb2_grpc.ReducerStub(channel)
-                response = stub.Reduce(
+                response = stub.Reduce.future(
                     map_reduce_pb2.ReduceRequest(
-                        shards=json.dumps(shards[i]),
+                        shards=json.dumps(self.shards[i]),
                     )
                 )
-                self.local_reduce(json.loads(response.datastore))
+                response.add_done_callback(self.local_reduce)
+                time.sleep(0.01)
         print(self.datastore)
 
     def local_reduce(self, datastore):

@@ -24,6 +24,7 @@ class WordCountMapper(Mapper):
             shards[shard_index][word] += count
         return map_reduce_pb2.MapResponse(shards=json.dumps(shards))
 
+
 class WordCountReducer(Reducer):
     def Reduce(self, request, context):
         shards = json.loads(request.shards)
@@ -43,7 +44,8 @@ class WordCountReducer(Reducer):
 
 
 class WordCountManager(Manager):
-    def local_reduce(self, datastore):
+    def local_reduce(self, future):
+        datastore = json.loads(future.result().datastore)
         store = defaultdict(int, datastore)
         for key, value in store.items():
             self.datastore[key] += value
