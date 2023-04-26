@@ -4,7 +4,7 @@ import time
 from collections import defaultdict
 
 import map_reduce_pb2
-from map_reduce import Manager, Mapper, Reducer
+from map_reduce import Manager, Mapper, Reducer, Partitioner
 
 
 class WordCountMapper(Mapper):
@@ -16,16 +16,13 @@ class WordCountMapper(Mapper):
                     for word in line.strip().split():
                         word = word.lower()
                         self.datastore[word] += 1
-        shards = self.create_shards(request.num_reducers)
-        return map_reduce_pb2.MapResponse(shards=json.dumps(shards))
-
-    def create_shards(self, num_reducers: int):
+        num_reducers = request.num_reducers
+        partitioner = Partitioner(num_reducers)
         shards = [defaultdict(int) for _ in range(num_reducers)]
         for word, count in self.datastore.items():
-            shard_index = abs(hash(word)) % num_reducers
+            shard_index = partitioner.partition(word)
             shards[shard_index][word] += count
-        return shards
-
+        return map_reduce_pb2.MapResponse(shards=json.dumps(shards))
 
 class WordCountReducer(Reducer):
     def Reduce(self, request, context):
@@ -34,7 +31,10 @@ class WordCountReducer(Reducer):
             datastore = defaultdict(int, datastore)
             for word, count in datastore.items():
                 self.datastore[word] += count
-        with open(os.path.join(os.path.dirname(__file__), f"sample/word_count/wc_output{self.id}.txt"), "w") as f:
+        with open(os.path.join(
+            os.path.dirname(__file__),
+            f"sample/word_count/wc_output{self.id}.txt"
+        ), "w") as f:
             for key, value in self.datastore.items():
                 f.write(f"{key} {value}\n")
         return map_reduce_pb2.ReduceResponse(

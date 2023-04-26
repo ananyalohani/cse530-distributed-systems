@@ -12,18 +12,32 @@ import map_reduce_pb2
 import map_reduce_pb2_grpc
 
 
+class Partitioner():
+    def __init__(self, num_partitions):
+        self.num_partitions = num_partitions
+        self.current_partition = 0
+
+    def partition(self, key):
+        partition = self.current_partition
+        self.current_partition = (
+            self.current_partition + 1) % self.num_partitions
+        return partition
+
+
 class Mapper(map_reduce_pb2_grpc.MapperServicer):
     id: int = 0
     address: str = ""
     filepaths: List[str] = []
-    reducers: List[str] = []
-    datastore: dict = {}
+    datastore: defaultdict = defaultdict(int)
 
     def __init__(self, id: int, filepaths: List[str] = [],
                  reducers: List[str] = []):
         self.id = id
         self.filepaths = filepaths
         self.reducers = reducers
+
+    def Map(self, request, context):
+        pass
 
     def serve(self, port):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -35,18 +49,11 @@ class Mapper(map_reduce_pb2_grpc.MapperServicer):
         self.server.start()
         print(f"[.] Mapper {self.id} node started on {self.address}")
 
-    def Map(self, request, context):
-        pass
-
-    def create_shards(self, num_reducers: int):
-        pass
-
 
 class Reducer(map_reduce_pb2_grpc.ReducerServicer):
     id: int = 0
     datastore: defaultdict = defaultdict(int)
     address: str = ""
-    mappers: List[str] = []
 
     def __init__(self, id: int):
         self.id = id
