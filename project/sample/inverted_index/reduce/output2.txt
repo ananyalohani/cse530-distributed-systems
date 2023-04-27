@@ -1,0 +1,11 @@
+apple 1
+red 1
+color 1
+not 3,2
+greatness 2
+are 2
+great 2
+achieve 2
+and 2
+worship 3
+faith 3

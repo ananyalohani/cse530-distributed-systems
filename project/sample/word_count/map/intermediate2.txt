@@ -1,6 +1,6 @@
-apple 4
-red 2
-color 2
+apple 2
+red 1
+color 1
 not 1
 greatness 3
 are 1

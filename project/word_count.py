@@ -66,7 +66,7 @@ if __name__ == "__main__":
     manager = Manager(
         "word_count",
         config,
-        [input1, input2, input3, input1],
+        [input1, input2, input3],
         WordCountMapper,
         WordCountReducer,
     )

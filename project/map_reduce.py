@@ -74,7 +74,7 @@ class Reducer(map_reduce_pb2_grpc.ReducerServicer, ABC):
 
 class Manager(ABC):
     datastore = defaultdict(int)
-    map_filepaths = []
+    map_filepaths = set()
 
     def __init__(
         self,
@@ -154,7 +154,8 @@ class Manager(ABC):
         self.reducers[idx].server.wait_for_termination()
 
     def get_map_response(self, future: grpc.Future):
-        self.map_filepaths = future.result().filepaths
+        for filepath in future.result().filepaths:
+            self.map_filepaths.add(filepath)
 
     def run(self):
         self.cleanup()
@@ -171,6 +172,8 @@ class Manager(ABC):
                 )
                 response.add_done_callback(self.get_map_response)
                 time.sleep(2)
+
+        self.map_filepaths = sorted(list(self.map_filepaths))
 
         for i in range(len(self.reducers)):
             with grpc.insecure_channel(self.reducer_addresses[i]) as channel:
