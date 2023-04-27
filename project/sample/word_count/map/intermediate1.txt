@@ -1,7 +1,7 @@
-this 1
-is 2
-an 1
-in 1
+this 2
+is 4
+an 2
+in 2
 be 1
 afraid 1
 of 1

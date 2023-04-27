@@ -20,10 +20,9 @@ class Mapper(map_reduce_pb2_grpc.MapperServicer, ABC):
     datastore: defaultdict = defaultdict(int)
     shard_filepaths = set()
 
-    def __init__(self, id: int, filepaths: List[str] = [], reducers: List[str] = []):
+    def __init__(self, id: int, filepaths: List[str] = []):
         self.id = id
         self.filepaths = filepaths
-        self.reducers = reducers
 
     @abstractmethod
     def Map(self, request: map_reduce_pb2.MapRequest, context: grpc.ServicerContext):
@@ -90,11 +89,11 @@ class Manager(ABC):
             lines = f.readlines()
         self.num_mappers = int(lines[0].split(" = ")[1])
         self.num_reducers = int(lines[1].split(" = ")[1])
-        self.files_per_mapper = 0
-        if self.num_mappers < len(input_paths):
-            self.files_per_mapper = len(input_paths) // self.num_mappers
-        else:
-            self.files_per_mapper = 1
+        self.files_per_mapper = [[] for _ in range(self.num_mappers)]
+        i = 0
+        while i < len(input_paths):
+            self.files_per_mapper[i % self.num_mappers].append(input_paths[i])
+            i += 1
 
         if os.uname().sysname == "Darwin":
             multiprocessing.set_start_method("spawn")
@@ -109,14 +108,7 @@ class Manager(ABC):
         self.reducer_processes = []
         self.reducer_addresses = []
         for i in range(self.num_mappers):
-            idx = (
-                (i + 1) * self.files_per_mapper
-                if (i + 1) * self.files_per_mapper < len(self.input_paths)
-                else len(self.input_paths)
-            )
-            mapper = MapperClass(
-                i + 1, self.input_paths[i * self.files_per_mapper : idx]
-            )
+            mapper = MapperClass(i + 1, self.files_per_mapper[i])
             self.mappers.append(mapper)
 
         for i in range(self.num_reducers):
