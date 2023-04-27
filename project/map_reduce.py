@@ -84,29 +84,30 @@ class Manager(ABC):
         MapperClass,
         ReducerClass,
     ):
-        self.operation = operation
-        with open(config_path, "r") as f:
-            lines = f.readlines()
-        self.num_mappers = int(lines[0].split(" = ")[1])
-        self.num_reducers = int(lines[1].split(" = ")[1])
-        self.files_per_mapper = [[] for _ in range(self.num_mappers)]
-        i = 0
-        while i < len(input_paths):
-            self.files_per_mapper[i % self.num_mappers].append(input_paths[i])
-            i += 1
-
         if os.uname().sysname == "Darwin":
             multiprocessing.set_start_method("spawn")
 
+        self.operation = operation
         self.input_paths = input_paths
-        self.shards = [[] for _ in range(self.num_reducers)]
-
         self.mappers = []
         self.mapper_processes = []
         self.mapper_addresses = []
         self.reducers = []
         self.reducer_processes = []
         self.reducer_addresses = []
+
+        with open(config_path, "r") as f:
+            lines = f.readlines()
+            self.num_mappers = int(lines[0].split(" = ")[1])
+            self.num_reducers = int(lines[1].split(" = ")[1])
+            self.shards = [[] for _ in range(self.num_reducers)]
+
+        self.files_per_mapper = [[] for _ in range(self.num_mappers)]
+        i = 0
+        while i < len(input_paths):
+            self.files_per_mapper[i % self.num_mappers].append(input_paths[i])
+            i += 1
+
         for i in range(self.num_mappers):
             mapper = MapperClass(i + 1, self.files_per_mapper[i])
             self.mappers.append(mapper)
