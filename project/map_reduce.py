@@ -1,4 +1,3 @@
-import json
 import multiprocessing
 import os
 import socket
@@ -14,32 +13,24 @@ import map_reduce_pb2
 import map_reduce_pb2_grpc
 
 
-class Partitioner():
-    def __init__(self, num_partitions):
-        self.num_partitions = num_partitions
-        self.current_partition = 0
-
-    def partition(self, key):
-        partition = self.current_partition
-        self.current_partition = (
-            self.current_partition + 1) % self.num_partitions
-        return partition
-
-
 class Mapper(map_reduce_pb2_grpc.MapperServicer, ABC):
     id: int = 0
     address: str = ""
     filepaths: List[str] = []
     datastore: defaultdict = defaultdict(int)
+    shard_filepaths = set()
 
-    def __init__(self, id: int, filepaths: List[str] = [],
-                 reducers: List[str] = []):
+    def __init__(self, id: int, filepaths: List[str] = [], reducers: List[str] = []):
         self.id = id
         self.filepaths = filepaths
         self.reducers = reducers
 
     @abstractmethod
     def Map(self, request: map_reduce_pb2.MapRequest, context: grpc.ServicerContext):
+        pass
+
+    @abstractmethod
+    def _map(self, key: any, value: any):
         pass
 
     def serve(self, port):
@@ -55,14 +46,20 @@ class Mapper(map_reduce_pb2_grpc.MapperServicer, ABC):
 
 class Reducer(map_reduce_pb2_grpc.ReducerServicer, ABC):
     id: int = 0
-    datastore: defaultdict = defaultdict(int)
+    datastore: defaultdict = defaultdict(list)
     address: str = ""
 
     def __init__(self, id: int):
         self.id = id
 
     @abstractmethod
-    def Reduce(self, request: map_reduce_pb2.ReduceRequest, context: grpc.ServicerContext):
+    def Reduce(
+        self, request: map_reduce_pb2.ReduceRequest, context: grpc.ServicerContext
+    ):
+        pass
+
+    @abstractmethod
+    def _reduce(self, key: any, value: any):
         pass
 
     def serve(self, port):
@@ -78,8 +75,17 @@ class Reducer(map_reduce_pb2_grpc.ReducerServicer, ABC):
 
 class Manager(ABC):
     datastore = defaultdict(int)
+    map_filepaths = []
 
-    def __init__(self, config_path: str, input_paths: List[str], MapperClass, ReducerClass):
+    def __init__(
+        self,
+        operation: str,
+        config_path: str,
+        input_paths: List[str],
+        MapperClass,
+        ReducerClass,
+    ):
+        self.operation = operation
         with open(config_path, "r") as f:
             lines = f.readlines()
         self.num_mappers = int(lines[0].split(" = ")[1])
@@ -91,7 +97,7 @@ class Manager(ABC):
             self.files_per_mapper = 1
 
         if os.uname().sysname == "Darwin":
-            multiprocessing.set_start_method('spawn')
+            multiprocessing.set_start_method("spawn")
 
         self.input_paths = input_paths
         self.shards = [[] for _ in range(self.num_reducers)]
@@ -103,31 +109,46 @@ class Manager(ABC):
         self.reducer_processes = []
         self.reducer_addresses = []
         for i in range(self.num_mappers):
-            idx = (i + 1) * self.files_per_mapper if (i + 1) * \
-                self.files_per_mapper < len(self.input_paths) else len(self.input_paths)
+            idx = (
+                (i + 1) * self.files_per_mapper
+                if (i + 1) * self.files_per_mapper < len(self.input_paths)
+                else len(self.input_paths)
+            )
             mapper = MapperClass(
-                i + 1, self.input_paths[i * self.files_per_mapper:idx])
+                i + 1, self.input_paths[i * self.files_per_mapper : idx]
+            )
             self.mappers.append(mapper)
 
         for i in range(self.num_reducers):
             reducer = ReducerClass(i + 1)
             self.reducers.append(reducer)
 
+    def cleanup(self):
+        for type in ["map", "reduce"]:
+            folder = os.path.join(
+                os.path.dirname(__file__), "sample", self.operation, type
+            )
+            try:
+                for filename in os.listdir(folder):
+                    filepath = os.path.join(folder, filename)
+                    if os.path.isfile(filepath):
+                        os.unlink(filepath)
+            except Exception as e:
+                print("Failed to delete:", e)
+
     def find_free_port(self):
         with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as s:
-            s.bind(('', 0))
+            s.bind(("", 0))
             s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             return s.getsockname()[1]
 
     def start_process(self, obj, idx, port):
         p = None
-        if obj == 'mapper':
-            p = multiprocessing.Process(
-                target=self.start_mapper, args=(idx, port))
+        if obj == "mapper":
+            p = multiprocessing.Process(target=self.start_mapper, args=(idx, port))
             p.start()
-        elif obj == 'reducer':
-            p = multiprocessing.Process(
-                target=self.start_reducer, args=(idx, port))
+        elif obj == "reducer":
+            p = multiprocessing.Process(target=self.start_reducer, args=(idx, port))
             p.start()
         return p
 
@@ -139,14 +160,14 @@ class Manager(ABC):
         self.reducers[idx].serve(port)
         self.reducers[idx].server.wait_for_termination()
 
-    def add_shards(self, future: grpc.Future):
-        shards = json.loads(future.result().shards)
-        for i, item in enumerate(shards):
-            self.shards[i % len(shards)].append(item)
+    def get_map_response(self, future: grpc.Future):
+        self.map_filepaths = future.result().filepaths
 
     def run(self):
+        self.cleanup()
+        time.sleep(1)
         for i in range(len(self.mappers)):
-            if (not len(self.mappers[i].filepaths)):
+            if not len(self.mappers[i].filepaths):
                 continue
             with grpc.insecure_channel(self.mapper_addresses[i]) as channel:
                 stub = map_reduce_pb2_grpc.MapperStub(channel)
@@ -155,21 +176,15 @@ class Manager(ABC):
                         num_reducers=len(self.reducers),
                     )
                 )
-                response.add_done_callback(self.add_shards)
-                time.sleep(0.01)
+                response.add_done_callback(self.get_map_response)
+                time.sleep(2)
 
         for i in range(len(self.reducers)):
             with grpc.insecure_channel(self.reducer_addresses[i]) as channel:
                 stub = map_reduce_pb2_grpc.ReducerStub(channel)
                 response = stub.Reduce.future(
                     map_reduce_pb2.ReduceRequest(
-                        shards=json.dumps(self.shards[i]),
+                        filepath=self.map_filepaths[i],
                     )
                 )
-                response.add_done_callback(self.local_reduce)
-                time.sleep(0.01)
-        print(self.datastore)
-
-    @abstractmethod
-    def local_reduce(self, future: grpc.Future):
-        pass
+                time.sleep(2)

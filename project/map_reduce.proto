@@ -7,15 +7,15 @@ message MapRequest {
 }
 
 message MapResponse {
-    string shards = 1;
+    repeated string filepaths = 1;
 }
 
 message ReduceRequest {
-    string shards = 1;
+    string filepath = 1;
 }
 
 message ReduceResponse {
-    string datastore = 1;
+    string status = 1;
 }
 
 service Mapper {

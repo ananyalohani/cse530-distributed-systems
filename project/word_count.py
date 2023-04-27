@@ -1,10 +1,10 @@
-import json
 import os
 import time
+from typing import List
 from collections import defaultdict
 
 import map_reduce_pb2
-from map_reduce import Manager, Mapper, Partitioner, Reducer
+from map_reduce import Manager, Mapper, Reducer
 
 
 class WordCountMapper(Mapper):
@@ -16,59 +16,67 @@ class WordCountMapper(Mapper):
                     for word in line.strip().split():
                         word = word.lower()
                         self.datastore[word] += 1
-        num_reducers = request.num_reducers
-        partitioner = Partitioner(num_reducers)
-        shards = [defaultdict(int) for _ in range(num_reducers)]
-        for word, count in self.datastore.items():
-            shard_index = partitioner.partition(word)
-            shards[shard_index][word] += count
-        return map_reduce_pb2.MapResponse(shards=json.dumps(shards))
+        self.num_reducers = request.num_reducers
+        for key, value in self.datastore.items():
+            self._map(key, value)
+        return map_reduce_pb2.MapResponse(filepaths=list(self.shard_filepaths))
+
+    def _map(self, key, value):
+        shard_index = len(key) % self.num_reducers
+        idx = shard_index + 1
+        filepath = os.path.join(
+            os.path.dirname(__file__),
+            f"sample/word_count/map/intermediate{idx}.txt",
+        )
+        self.shard_filepaths.add(filepath)
+        with open(filepath, "a") as f:
+            f.write(f"{key} {value}\n")
 
 
 class WordCountReducer(Reducer):
     def Reduce(self, request, context):
-        shards = json.loads(request.shards)
-        for datastore in shards:
-            datastore = defaultdict(int, datastore)
-            for word, count in datastore.items():
-                self.datastore[word] += count
-        with open(os.path.join(
-            os.path.dirname(__file__),
-            f"sample/word_count/wc_output{self.id}.txt"
-        ), "w") as f:
-            for key, value in self.datastore.items():
-                f.write(f"{key} {value}\n")
-        return map_reduce_pb2.ReduceResponse(
-            datastore=json.dumps(self.datastore),
-        )
+        filepaths = request.filepath
+        with open(filepaths, "r") as f:
+            for line in f:
+                word, count = line.strip().split()
+                self.datastore[word].append(int(count))
+        for key, value in self.datastore.items():
+            self._reduce(key, value)
+        return map_reduce_pb2.ReduceResponse(status="OK")
 
-
-class WordCountManager(Manager):
-    def local_reduce(self, future):
-        datastore = json.loads(future.result().datastore)
-        store = defaultdict(int, datastore)
-        for key, value in store.items():
-            self.datastore[key] += value
+    def _reduce(self, key: str, value: List[int]):
+        count = 0
+        for v in value:
+            count = count + v
+        with open(
+            os.path.join(
+                os.path.dirname(__file__),
+                f"sample/word_count/reduce/output{self.id}.txt",
+            ),
+            "a",
+        ) as f:
+            f.write(f"{key} {count}\n")
 
 
 if __name__ == "__main__":
-    config = os.path.join(os.path.dirname(__file__),
-                          "sample/word_count/config.txt")
-    input1 = os.path.join(os.path.dirname(__file__),
-                          "sample/word_count/Input1.txt")
-    input2 = os.path.join(os.path.dirname(__file__),
-                          "sample/word_count/Input2.txt")
-    input3 = os.path.join(os.path.dirname(__file__),
-                          "sample/word_count/Input3.txt")
-    manager = WordCountManager(
-        config, [input1, input2, input3], WordCountMapper, WordCountReducer)
+    config = os.path.join(os.path.dirname(__file__), "sample/word_count/config.txt")
+    input1 = os.path.join(os.path.dirname(__file__), "sample/word_count/Input1.txt")
+    input2 = os.path.join(os.path.dirname(__file__), "sample/word_count/Input2.txt")
+    input3 = os.path.join(os.path.dirname(__file__), "sample/word_count/Input3.txt")
+    manager = Manager(
+        "word_count",
+        config,
+        [input1, input2, input3],
+        WordCountMapper,
+        WordCountReducer,
+    )
     for i in range(len(manager.reducers)):
         port = manager.find_free_port()
-        manager.start_process('reducer', i, port)
+        manager.start_process("reducer", i, port)
         manager.reducer_addresses.append(f"[::]:{port}]")
     for i in range(len(manager.mappers)):
         port = manager.find_free_port()
-        manager.start_process('mapper', i, port)
+        manager.start_process("mapper", i, port)
         manager.mapper_addresses.append(f"[::]:{port}")
     time.sleep(2)
     manager.run()
