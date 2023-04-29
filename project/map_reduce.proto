@@ -3,7 +3,7 @@ syntax = "proto3";
 package map_reduce;
 
 message MapRequest {
-    int32 num_reducers = 2;
+    int32 num_reducers = 1;
 }
 
 message MapResponse {

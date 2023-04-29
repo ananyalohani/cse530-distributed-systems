@@ -1,3 +1,4 @@
+import json
 import multiprocessing
 import os
 import socket
@@ -17,12 +18,13 @@ class Mapper(map_reduce_pb2_grpc.MapperServicer, ABC):
     id: int = 0
     address: str = ""
     filepaths: List[str] = []
-    datastore: defaultdict = defaultdict(int)
+    datastore: defaultdict()
     shard_filepaths = set()
 
-    def __init__(self, id: int, filepaths: List[str] = []):
+    def __init__(self, id: int, filepaths: List[str] = [], *args):
         self.id = id
         self.filepaths = filepaths
+        self.args = args
 
     @abstractmethod
     def Map(self, request: map_reduce_pb2.MapRequest, context: grpc.ServicerContext):
@@ -83,6 +85,8 @@ class Manager(ABC):
         input_paths: List[str],
         MapperClass,
         ReducerClass,
+        files_per_mapper: List[List[str]],
+        *map_args,
     ):
         if os.uname().sysname == "Darwin":
             multiprocessing.set_start_method("spawn")
@@ -102,14 +106,17 @@ class Manager(ABC):
             self.num_reducers = int(lines[1].split(" = ")[1])
             self.shards = [[] for _ in range(self.num_reducers)]
 
-        self.files_per_mapper = [[] for _ in range(self.num_mappers)]
-        i = 0
-        while i < len(input_paths):
-            self.files_per_mapper[i % self.num_mappers].append(input_paths[i])
-            i += 1
+        if len(files_per_mapper):
+            self.files_per_mapper = files_per_mapper
+        else:
+            self.files_per_mapper = [[] for _ in range(self.num_mappers)]
+            i = 0
+            while i < len(input_paths):
+                self.files_per_mapper[i % self.num_mappers].append(input_paths[i])
+                i += 1
 
         for i in range(self.num_mappers):
-            mapper = MapperClass(i + 1, self.files_per_mapper[i])
+            mapper = MapperClass(i + 1, self.files_per_mapper[i], *map_args)
             self.mappers.append(mapper)
 
         for i in range(self.num_reducers):

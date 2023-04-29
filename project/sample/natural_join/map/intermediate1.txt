@@ -1,0 +1,8 @@
+Name, input1_table1.txt  Age
+John, input1_table1.txt 21
+Name, input1_table2.txt  Role
+John, input1_table2.txt  CEO
+Name, input2_table1.txt  Age
+Elon, input2_table1.txt 1
+Name, input2_table2.txt  Role
+Nick, input2_table2.txt  Associate

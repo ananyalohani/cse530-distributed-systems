@@ -1,0 +1,8 @@
+Tom, input1_table1.txt 17
+Smith, input1_table1.txt 23
+Kevin, input1_table1.txt 100
+Tom, input1_table2.txt  Manager
+Kevin, input1_table2.txt  Intern
+Kevin, input2_table1.txt 200
+Tom, input2_table1.txt 34
+Kevin, input2_table2.txt  Chairman
