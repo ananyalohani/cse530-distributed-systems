@@ -1,2 +1,2 @@
-Name,Age,Role
-John,21,CEO
+roll_no,age,name,role,salary
+2,xyz,21,swe,5000

@@ -1,7 +1,5 @@
-Name,Age,Role
-Tom,17,Manager
-Tom,34,Manager
-Kevin,100,Intern
-Kevin,100,Chairman
-Kevin,200,Intern
-Kevin,200,Chairman
+roll_no,age,name,role
+1,abc,20,intern
+3,pqr,22,pm
+3,pqr,22,swe
+5,btw,22,pm
