@@ -83,6 +83,7 @@ class Manager(ABC):
         input_paths: List[str],
         MapperClass,
         ReducerClass,
+        files_per_mapper: List[List[str]],
     ):
         if os.uname().sysname == "Darwin":
             multiprocessing.set_start_method("spawn")
@@ -102,11 +103,14 @@ class Manager(ABC):
             self.num_reducers = int(lines[1].split(" = ")[1])
             self.shards = [[] for _ in range(self.num_reducers)]
 
-        self.files_per_mapper = [[] for _ in range(self.num_mappers)]
-        i = 0
-        while i < len(input_paths):
-            self.files_per_mapper[i % self.num_mappers].append(input_paths[i])
-            i += 1
+        if files_per_mapper and len(files_per_mapper) == self.num_mappers:
+            self.files_per_mapper = files_per_mapper
+        else:
+            self.files_per_mapper = [[] for _ in range(self.num_mappers)]
+            i = 0
+            while i < len(input_paths):
+                self.files_per_mapper[i % self.num_mappers].append(input_paths[i])
+                i += 1
 
         for i in range(self.num_mappers):
             mapper = MapperClass(i + 1, self.files_per_mapper[i])
