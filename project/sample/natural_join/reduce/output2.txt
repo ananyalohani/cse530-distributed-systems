@@ -1,0 +1,7 @@
+Name,Age,Role
+Tom,17,Manager
+Tom,34,Manager
+Kevin,100,Intern
+Kevin,100,Chairman
+Kevin,200,Intern
+Kevin,200,Chairman

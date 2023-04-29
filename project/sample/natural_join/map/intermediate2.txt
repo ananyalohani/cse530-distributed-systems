@@ -1,0 +1,8 @@
+('Tom', 'Name') ('T1', 17, 'Age')
+('Smith', 'Name') ('T1', 23, 'Age')
+('Kevin', 'Name') ('T1', 100, 'Age')
+('Tom', 'Name') ('T2', 'Manager', 'Role')
+('Kevin', 'Name') ('T2', 'Intern', 'Role')
+('Kevin', 'Name') ('T1', 200, 'Age')
+('Tom', 'Name') ('T1', 34, 'Age')
+('Kevin', 'Name') ('T2', 'Chairman', 'Role')

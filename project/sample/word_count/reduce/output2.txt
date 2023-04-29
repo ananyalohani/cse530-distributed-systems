@@ -1,11 +1,2 @@
-apple 2
-red 1
-color 1
-not 2
-greatness 3
-are 1
-great 1
-achieve 1
-and 1
-worship 2
-faith 4
+,Name,Age,Role
+Name,Age,Role

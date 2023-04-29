@@ -1,0 +1,4 @@
+('John', 'Name') ('T1', 21, 'Age')
+('John', 'Name') ('T2', 'CEO', 'Role')
+('Elon', 'Name') ('T1', 1, 'Age')
+('Nick', 'Name') ('T2', 'Associate', 'Role')

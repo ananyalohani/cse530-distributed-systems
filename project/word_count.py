@@ -35,8 +35,7 @@ class WordCountMapper(Mapper):
 
 class WordCountReducer(Reducer):
     def Reduce(self, request, context):
-        filepaths = request.filepath
-        with open(filepaths, "r") as f:
+        with open(request.filepath, "r") as f:
             for line in f:
                 word, count = line.strip().split()
                 self.datastore[word].append(int(count))
