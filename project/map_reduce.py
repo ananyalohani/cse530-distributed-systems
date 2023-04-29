@@ -24,6 +24,17 @@ class Mapper(map_reduce_pb2_grpc.MapperServicer, ABC):
         self.id = id
         self.filepaths = filepaths
 
+    def GetIntermediateFile(
+        self,
+        request: map_reduce_pb2.IntermediateFileRequest,
+        context: grpc.ServicerContext,
+    ):
+        filepath = request.filepath
+        with open(filepath, "r") as f:
+            content = f.read().strip()
+            f.close()
+        return map_reduce_pb2.IntermediateFileResponse(file_content=content)
+
     @abstractmethod
     def Map(self, request: map_reduce_pb2.MapRequest, context: grpc.ServicerContext):
         pass
@@ -61,6 +72,14 @@ class Reducer(map_reduce_pb2_grpc.ReducerServicer, ABC):
     def _reduce(self, key: any, value: any):
         pass
 
+    def get_intermediate_file(self, mapper_address: str, filepath: str):
+        with grpc.insecure_channel(mapper_address) as channel:
+            stub = map_reduce_pb2_grpc.MapperStub(channel)
+            response = stub.GetIntermediateFile(
+                map_reduce_pb2.IntermediateFileRequest(filepath=filepath)
+            )
+            return response.file_content
+
     def serve(self, port):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.bind(("", port))
@@ -83,7 +102,7 @@ class Manager(ABC):
         input_paths: List[str],
         MapperClass,
         ReducerClass,
-        files_per_mapper: List[List[str]],
+        files_per_mapper: List[List[str]] = None,
     ):
         if os.uname().sysname == "Darwin":
             multiprocessing.set_start_method("spawn")
@@ -102,6 +121,7 @@ class Manager(ABC):
             self.num_mappers = int(lines[0].split(" = ")[1])
             self.num_reducers = int(lines[1].split(" = ")[1])
             self.shards = [[] for _ in range(self.num_reducers)]
+            f.close()
 
         if files_per_mapper and len(files_per_mapper) == self.num_mappers:
             self.files_per_mapper = files_per_mapper
@@ -157,9 +177,9 @@ class Manager(ABC):
         self.reducers[idx].serve(port)
         self.reducers[idx].server.wait_for_termination()
 
-    def get_map_response(self, future: grpc.Future):
+    def get_map_response(self, future: grpc.Future, mapper_index: int):
         for filepath in future.result().filepaths:
-            self.map_filepaths.add(filepath)
+            self.map_filepaths.add((mapper_index, filepath))
 
     def run(self):
         self.cleanup()
@@ -174,17 +194,22 @@ class Manager(ABC):
                         num_reducers=len(self.reducers),
                     )
                 )
-                response.add_done_callback(self.get_map_response)
+                response.add_done_callback(
+                    lambda future: self.get_map_response(future, i)
+                )
                 time.sleep(2)
 
         self.map_filepaths = sorted(list(self.map_filepaths))
 
         for i in range(len(self.reducers)):
             with grpc.insecure_channel(self.reducer_addresses[i]) as channel:
+                mapper_index, filepath = self.map_filepaths[i]
+                mapper_address = self.mapper_addresses[mapper_index]
                 stub = map_reduce_pb2_grpc.ReducerStub(channel)
                 response = stub.Reduce.future(
                     map_reduce_pb2.ReduceRequest(
-                        filepath=self.map_filepaths[i],
+                        filepath=filepath,
+                        mapper_address=mapper_address,
                     )
                 )
                 time.sleep(2)

@@ -40,14 +40,15 @@ class InvertedIndexMapper(Mapper):
 
 class InvertedIndexReducer(Reducer):
     def Reduce(self, request, context):
-        filepaths = request.filepath
-        with open(filepaths, "r") as f:
-            for line in f:
-                word, indices = line.strip().split(" ")
-                if word in self.datastore:
-                    self.datastore[word] += indices.split(",")
-                else:
-                    self.datastore[word] = indices.split(",")
+        file_content = self.get_intermediate_file(
+            mapper_address=request.mapper_address, filepath=request.filepath
+        )
+        for line in file_content.split("\n"):
+            word, indices = line.strip().split(" ")
+            if word in self.datastore:
+                self.datastore[word] += indices.split(",")
+            else:
+                self.datastore[word] = indices.split(",")
         inverted_index = defaultdict(set)
         for key, value in self.datastore.items():
             for v in value:

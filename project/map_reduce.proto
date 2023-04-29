@@ -10,8 +10,17 @@ message MapResponse {
     repeated string filepaths = 1;
 }
 
+message IntermediateFileRequest {
+    string filepath = 1;
+}
+
+message IntermediateFileResponse {
+    string file_content = 1;
+}
+
 message ReduceRequest {
     string filepath = 1;
+    string mapper_address = 2;
 }
 
 message ReduceResponse {
@@ -20,6 +29,7 @@ message ReduceResponse {
 
 service Mapper {
     rpc Map (MapRequest) returns (MapResponse) {}
+    rpc GetIntermediateFile (IntermediateFileRequest) returns (IntermediateFileResponse) {}
 }
 
 service Reducer {
