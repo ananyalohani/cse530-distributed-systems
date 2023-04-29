@@ -51,7 +51,7 @@ class NaturalJoinReducer(Reducer):
         filepath = request.filepath
         keys = []
         values = []
-        cols = []
+        cols = set()
         tables = set()
 
         # Read from intermediate file
@@ -60,9 +60,7 @@ class NaturalJoinReducer(Reducer):
                 key, value = line.strip().split(") (")
                 key = tuple(k.strip("'") for k in key.strip("()").split(", "))
                 value = tuple(v.strip("'") for v in value.strip("()").split(", "))
-                for v in value:
-                    if v[2] not in cols:
-                        cols.append(v[2])
+                cols.add(value[2])
                 tables.add(value[0])
                 if key not in keys:
                     keys.append(key)
@@ -71,7 +69,8 @@ class NaturalJoinReducer(Reducer):
                     values[keys.index(key)].append(value)
 
         # Write csv header to output file
-        cols = sorted(cols)
+        cols = list(sorted(cols))
+        print(cols)
         cols.insert(0, keys[0][1])
         with open(
             os.path.join(
